@@ -1,0 +1,10 @@
+spring:
+  application:
+    name: telegram-auto-bot
+
+app:
+  telegram:
+    bot:
+      name: AutoBot
+      token: ${APP_TELEGRAM_BOT_TOKEN}
+
