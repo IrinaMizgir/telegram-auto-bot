@@ -151,13 +151,6 @@ public class MaintenanceService {
         return new EnterResult(true, resultType.message + maintenanceInfoStringBuilder);
       }
     }
-
-    if (resultType.success) {
-      maintenanceEntity.setAuto(autoEntity);
-      MaintenanceStatus nextStatus = MaintenanceStatus.getNextStatus(status);
-      maintenanceEntity.setStatus(nextStatus);
-      maintenanceRepository.save(maintenanceEntity);
-    }
     return new EnterResult(resultType.success, resultType.message);
   }
 
