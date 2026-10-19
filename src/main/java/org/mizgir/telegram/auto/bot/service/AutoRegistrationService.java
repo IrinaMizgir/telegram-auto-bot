@@ -109,20 +109,20 @@ public class AutoRegistrationService {
         var autoInfoStringBuilder = new StringBuilder();
         if (StringUtils.isNoneEmpty(autoEntity.getName())) {
           autoInfoStringBuilder
-              .append("\nМодель и марка: ")
+              .append("\n\uD83D\uDE98 Марка и модель: ")
               .append(autoEntity.getName())
               .append(". ");
         }
         if (autoEntity.getYear() != null) {
           autoInfoStringBuilder
-              .append("\nГод выпуска: ")
+              .append("\n\uD83D\uDCC5Год выпуска: ")
               .append(autoEntity.getYear())
               .append(". ");
 
         }
         if (autoEntity.getRun() != null) {
           autoInfoStringBuilder
-              .append("\nПробег: ")
+              .append("\n\uD83D\uDEE3 Пробег: ")
               .append(autoEntity.getRun())
               .append(" км.");
         }
@@ -153,27 +153,40 @@ public class AutoRegistrationService {
     /**
      * Успешно введено имя.
      */
-    SUCCESS_ENTER_NAME(true, "Введите год выпуска:"),
+    SUCCESS_ENTER_NAME(true, """
+        \uD83D\uDCC5 Введите год выпуска
+        
+         год числом, например: 2006.
+        
+        \uD83D\uDC47 Напишите год:"""),
 
     /**
      * Успешно введен год.
      */
-    SUCCESS_ENTER_YEAR(true, "Введите пробег:"),
+    SUCCESS_ENTER_YEAR(true, "\uD83D\uDEE3 Введите текущий пробег\n"
+        + "\nУкажите пробег в километрах, только число.\n"
+        + "\n\uD83D\uDC47 Напишите пробег:"),
 
     /**
      * Некорректный год.
      */
-    INCORRECT_YEAR(false, "Некорректный год выпуска."),
+    INCORRECT_YEAR(false, "⚠️ Не удалось сохранить год выпуска\n"
+        + "\n"
+        + "Введите год числом в диапазоне 1894–2026.\n"
+        + "Например: 2006.\n"
+        + "\n"
+        + "\uD83D\uDC47 Попробуйте ещё раз:"),
 
     /**
      * Некорректный пробег.
      */
-    INCORRECT_RUN(false, "Некорректный пробег."),
+    INCORRECT_RUN(false, "⚠️ Неверный пробег\n"
+        + "Введите число в километрах, например: 120000."),
 
     /**
      * Успешно.
      */
-    SUCCESS(true, "Автомобиль добавлен.");
+    SUCCESS(true, "✅ Автомобиль добавлен");
 
     /**
      * Признак успешности.
