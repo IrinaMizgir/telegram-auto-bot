@@ -21,8 +21,10 @@ repositories {
 dependencies {
     val telegrambotsSpringBootStarterVersion = "10.3.0"
     val hypersistenceUtilsHibernateVersion = "3.16.0"
+    val guavaVersion = "33.7.2-jre"
 
     implementation("org.apache.commons:commons-lang3")
+    implementation("com.google.guava:guava:$guavaVersion")
     implementation("org.springframework.boot:spring-boot-h2console")
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     implementation("org.springframework.boot:spring-boot-starter-thymeleaf")

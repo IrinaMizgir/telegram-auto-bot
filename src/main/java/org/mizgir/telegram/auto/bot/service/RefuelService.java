@@ -2,6 +2,7 @@ package org.mizgir.telegram.auto.bot.service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.math.NumberUtils;
@@ -10,6 +11,7 @@ import org.mizgir.telegram.auto.bot.entity.RefuelEntity;
 import org.mizgir.telegram.auto.bot.entity.RefuelEntity.RefuelStatus;
 import org.mizgir.telegram.auto.bot.entity.UserActionStateEntity.ActionType;
 import org.mizgir.telegram.auto.bot.model.EnterResult;
+import org.mizgir.telegram.auto.bot.model.RefuelSummary;
 import org.mizgir.telegram.auto.bot.repository.RefuelRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -119,12 +121,15 @@ public class RefuelService {
       }
       case ENTER_PRICE -> {
         if (NumberUtils.isParsable(text)) {
-          double price = Double.parseDouble(text);
-          if (price > 0) {
+          double doublePrice = Double.parseDouble(text);
+          if (doublePrice > 0) {
+
+            BigDecimal price = BigDecimal.valueOf(doublePrice).setScale(2, RoundingMode.HALF_UP);
             refuelEntity.setPrice(price);
-            double costs = BigDecimal.valueOf(refuelEntity.getAmount()).setScale(2, RoundingMode.HALF_UP)
-                .multiply(BigDecimal.valueOf(price).setScale(2, RoundingMode.HALF_UP))
-                .doubleValue();
+
+            BigDecimal costs = BigDecimal.valueOf(refuelEntity.getAmount()).setScale(2, RoundingMode.HALF_UP)
+                .multiply(price)
+                .setScale(2, RoundingMode.HALF_UP);
 
             refuelEntity.setCost(costs);
 
@@ -143,28 +148,45 @@ public class RefuelService {
       if (EnterRefuelInformationResultType.SUCCESS.equals(resultType)) {
         var refuelInfoStringBuilder = new StringBuilder();
         if (refuelEntity.getDistance() != null) {
-          refuelInfoStringBuilder.append("\nПробег: ")
+          refuelInfoStringBuilder.append("\n\uD83D\uDEE3 Пробег:  ")
               .append(refuelEntity.getDistance())
               .append(" км.\n");
         }
         if (refuelEntity.getAmount() != null) {
-          refuelInfoStringBuilder.append("Залито: ")
+          refuelInfoStringBuilder.append("⛽️ Залито:  ")
               .append(refuelEntity.getAmount())
               .append(" л.\n");
         }
         if (refuelEntity.getCost() != null) {
-          refuelInfoStringBuilder.append("Сумма: ")
+          refuelInfoStringBuilder.append("\uD83D\uDCB0 Сумма: ")
               .append(refuelEntity.getCost())
               .append(" BYN.");
 
         }
-        return new EnterResult(true, resultType.message + refuelInfoStringBuilder.toString());
+        return new EnterResult(true, resultType.message + refuelInfoStringBuilder);
       }
 
     }
 
     return new EnterResult(resultType.success, resultType.message);
+  }
 
+  /**
+   * Получение суммарной информации о расходах на топлива.
+   * @param autoEntity Сущность автомобиля.
+   * @return Суммарная информация о расходах на топлива.
+   */
+  public RefuelSummary getRefuelSummaryByAuto(AutoEntity autoEntity) {
+    return refuelRepository.calculateSummary(autoEntity);
+  }
+
+  /**
+   * Получение суммарной информации о расходах на топлива за период.
+   * @param autoEntity Сущность автомобиля.
+   * @return Суммарная информация о расходах на топлива за период.
+   */
+  public RefuelSummary getRefuelSummaryByAutoAndPeriod(AutoEntity autoEntity, LocalDate startDate, LocalDate endDate) {
+    return refuelRepository.sumCostsByAutoBetweenCreationDate(autoEntity, startDate, endDate);
   }
 
   /**
@@ -175,30 +197,49 @@ public class RefuelService {
     /**
      * Успешно введено количество литров.
      */
-    SUCCESS_ENTER_RUN(true, "Введите количество литров топлива:"),
+    SUCCESS_ENTER_RUN(true, "⛽️ Сколько топлива залили?\n"
+        + "\n"
+        + "Введите количество литров, например: 2.5 или 40.\n"
+        + "\n"
+        + "\uD83D\uDC47 Напишите количество литров:"),
     /**
      * Успешно введена стоимость за литр топлива.
      */
-    SUCCESS_ENTER_AMOUNT(true, "Введите стоимость за литр топлива:"),
+    SUCCESS_ENTER_AMOUNT(true, "\uD83D\uDCB5 Цена за литр\n"
+        + "\n"
+        + "Укажите стоимость одного литра топлива в BYN.\n"
+        + "Например: 2.75.\n"
+        + "\n"
+        + "\uD83D\uDC47 Напишите цену за литр:"),
     /**
      * Успешно.
      */
-    SUCCESS(true, "Заправка добавлена."),
+    SUCCESS(true, "✅ Заправка добавлена"),
 
     /**
      * Некорректный пробег.
      */
-    INCORRECT_RUN(false, "Некорректный пробег."),
+    INCORRECT_RUN(false, "\uD83E\uDD14Кажется, пробег введён неверно\n"
+        + "\n"
+        + "Введите число километров, например: 608 или 120500."),
 
     /**
      * Некорректное количество литров.
      */
-    INCORRECT_AMOUNT(false, "Неверное количество топлива."),
+    INCORRECT_AMOUNT(false, "\uD83E\uDD14Кажется, количество топлива введено неверно\n"
+        + "\n"
+        + "Введите число литров, например: 2.0 или 40."),
 
     /**
      * Некорректная цена за литр топлива.
      */
-    INCORRECT_PRICE(false, "Неверная стоимость.");
+    INCORRECT_PRICE(false, """
+        ⚠️ Не удалось сохранить стоимость
+        
+        Похоже, вы ввели некорректное значение.
+        Укажите цену за литр числом в BYN — например: 2.75.
+        
+        \uD83D\uDC47 Попробуйте ещё раз:""");
 
     /**
      * Признак успешности.

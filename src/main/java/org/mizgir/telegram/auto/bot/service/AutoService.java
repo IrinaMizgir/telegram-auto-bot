@@ -26,7 +26,7 @@ public class AutoService {
    * @param userId Идентификатор пользователя.
    * @return Новый автомобиль.
    */
-  public AutoEntity newAuto(Long userId) {
+  public AutoEntity newAuto(long userId) {
     AutoEntity autoEntity = new AutoEntity();
     autoEntity.setUser(userService.getUserById(userId));
 

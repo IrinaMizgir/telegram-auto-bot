@@ -1,0 +1,199 @@
+package org.mizgir.telegram.auto.bot.service;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.LocalDate;
+import java.util.Optional;
+import lombok.RequiredArgsConstructor;
+import org.apache.commons.lang3.math.NumberUtils;
+import org.mizgir.telegram.auto.bot.entity.AutoEntity;
+import org.mizgir.telegram.auto.bot.entity.ExpensesEntity;
+import org.mizgir.telegram.auto.bot.entity.ExpensesEntity.ExpensesStatus;
+import org.mizgir.telegram.auto.bot.entity.UserActionStateEntity.ActionType;
+import org.mizgir.telegram.auto.bot.model.EnterResult;
+import org.mizgir.telegram.auto.bot.repository.ExpensesRepository;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+/**
+ * Сервис для работы с расходами на автомобиль.
+ * @author Ирина Мизгир
+ * @date 16.10.2026 21:54
+ */
+@Service
+@RequiredArgsConstructor
+public class ExpensesService {
+
+  private final AutoService autoService;
+
+  private final ExpensesRepository expensesRepository;
+
+  private final UserActionStateService userActionStateService;
+
+  /**
+   * Создание новой записи расходов.
+   * @param telegramUserId Идентификатор пользователя.
+   * @return true - если начат новый процесс расходов.
+   */
+  @Transactional
+  public boolean create(Long telegramUserId) {
+    Optional<AutoEntity> autoEntity = autoService.findByUserId(telegramUserId);
+    if (autoEntity.isEmpty()) {
+      return false;
+    }
+    userActionStateService.changeActionTypeById(telegramUserId, ActionType.ENTER_EXPENSES);
+    autoEntity.ifPresent(this::upsertExpenses);
+
+    return true;
+  }
+
+  /**
+   * Создание записи о расходах для указанного автомобиля.
+   *
+   * @param autoEntity Автомобиль, для которого создаётся запись о расходах.
+   */
+  private void upsertExpenses(AutoEntity autoEntity) {
+    expensesRepository.findByAutoIdAndStatusNot(autoEntity.getId(), ExpensesStatus.FINISHED)
+        .ifPresentOrElse(
+            expensesEntity -> onUpsertOnFindExpenses(expensesEntity, autoEntity),
+            () -> create(autoEntity)
+        );
+  }
+
+  /***
+   * Обрабатывает найденную существующую запись о расходах.
+   *
+   * @param expensesEntity Найденный существующий запись о расходе.
+   * @param autoEntity Автомобиль, для которого создаётся запись о расходах.
+   */
+  private void onUpsertOnFindExpenses(ExpensesEntity expensesEntity, AutoEntity autoEntity) {
+    if (!ExpensesStatus.ENTER_DESCRIPTION.equals(expensesEntity.getStatus())) {
+      expensesRepository.delete(expensesEntity);
+      create(autoEntity);
+    }
+  }
+
+  /**
+   * Создаёт новую запись о расходах для указанного автомобиля и сохраняет её в репозитории.
+   * @param autoEntity Автомобиль, для которого создаётся запись о расходах.
+   */
+  private void create(AutoEntity autoEntity) {
+    ExpensesEntity expensesEntity = new ExpensesEntity();
+    expensesEntity.setAuto(autoEntity);
+    expensesRepository.save(expensesEntity);
+  }
+
+  /**
+   * Ввод информации расходов.
+   *
+   * @param telegramUserId Идентификатор пользователя.
+   * @param text           Введенные данные расходов в виде текста.
+   * @return Результат.
+   */
+  public EnterResult enterExpensesData(Long telegramUserId, String text) {
+    AutoEntity autoEntity = autoService.getByUserId(telegramUserId);
+    ExpensesEntity expensesEntity = expensesRepository.getByAutoIdAndStatusNot(autoEntity.getId(),
+        ExpensesStatus.FINISHED);
+    ExpensesStatus status = expensesEntity.getStatus();
+    EnterExpensesInformationResultType resultType = switch (status) {
+      case ENTER_DESCRIPTION -> {
+        expensesEntity.setDescription(text);
+        yield EnterExpensesInformationResultType.SUCCESS_ENTER_DESCRIPTION;
+      }
+      case ENTER_COST -> {
+        if (NumberUtils.isParsable(text)) {
+          double doubleCost = Double.parseDouble(text);
+          expensesEntity.setCost(BigDecimal.valueOf(doubleCost).setScale(2, RoundingMode.HALF_UP));
+          yield EnterExpensesInformationResultType.SUCCESS;
+        }
+        yield EnterExpensesInformationResultType.INCORRECT_COST;
+      }
+      default -> throw new RuntimeException("Incorrect auto registration status");
+    };
+    if (resultType.success) {
+      expensesEntity.setAuto(autoEntity);
+      ExpensesStatus nextStatus = ExpensesStatus.getNextStatus(status);
+      expensesEntity.setStatus(nextStatus);
+      expensesRepository.save(expensesEntity);
+      if (EnterExpensesInformationResultType.SUCCESS.equals(resultType)) {
+        var expensesInfoStringBuilder = new StringBuilder();
+        if (expensesEntity.getDescription() != null) {
+          expensesInfoStringBuilder
+              .append("\nТип расхода: ")
+              .append(expensesEntity.getDescription())
+              .append(".");
+        }
+        if (expensesEntity.getCost() != null) {
+          expensesInfoStringBuilder
+              .append("\nСумма:")
+              .append(expensesEntity.getCost())
+              .append(" BYN.");
+        }
+        return new EnterResult(true, resultType.message + expensesInfoStringBuilder);
+      }
+    }
+    return new EnterResult(resultType.success, resultType.message);
+  }
+
+  /**
+   * Получение общей суммы за расходы.
+   * @param autoEntity Сущность автомобиля.
+   * @return Сумма расхода за расходы.
+   */
+  public BigDecimal getSumByAuto(AutoEntity autoEntity) {
+    BigDecimal bigDecimal = expensesRepository.sumCostsByAuto(autoEntity);
+    if (bigDecimal == null) {
+      return BigDecimal.ZERO;
+    }
+    return bigDecimal;
+  }
+
+  /**
+   * Получение суммарной информации о расходах за период.
+   * @param autoEntity Сущность автомобиля.
+   * @return Суммарная информация о расходах за период.
+   */
+  public BigDecimal getExpensesSummaryByAutoAndPeriod(AutoEntity autoEntity, LocalDate startDate, LocalDate endDate) {
+
+    BigDecimal bigDecimal = expensesRepository.sumCostsByAutoBetweenCreationDate(autoEntity, startDate, endDate);
+    if (bigDecimal == null) {
+      return BigDecimal.ZERO;
+    }
+    return bigDecimal;
+  }
+
+  /**
+   * Тип результата ввода информации.
+   */
+  @RequiredArgsConstructor
+  public enum EnterExpensesInformationResultType {
+    /**
+     * Успешно введена описание расходов.
+     */
+    SUCCESS_ENTER_DESCRIPTION(true, "\uD83D\uDCB0 Введите сумму расхода\n"
+        + "\nУкажите сумму в белорусских рублях (BYN)."
+        + "\nНапример: 21.00 или 21\n"
+        + "\n\uD83D\uDC47 Напишите сумму сообщением:"),
+
+    /**
+     * Некорректная стоимость расходов.
+     */
+    INCORRECT_COST(false, "\uD83E\uDD14 Кажется, сумма введена неверно\n"
+        + "\nВведите число в BYN, например: 21.00."),
+
+    /**
+     * Успешно.
+     */
+    SUCCESS(true, "✅ Расход успешно сохранён");
+
+    /**
+     * Признак успешности.
+     */
+    private final boolean success;
+
+    /**
+     * Сообщение.
+     */
+    private final String message;
+  }
+}
