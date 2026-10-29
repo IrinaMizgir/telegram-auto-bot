@@ -2,7 +2,6 @@ package org.mizgir.telegram.auto.bot.service;
 
 import lombok.RequiredArgsConstructor;
 import org.mizgir.telegram.auto.bot.entity.UserEntity;
-import org.mizgir.telegram.auto.bot.exception.UserNotFoundException;
 import org.mizgir.telegram.auto.bot.repository.UserRepository;
 import org.springframework.stereotype.Service;
 
@@ -25,7 +24,7 @@ public class UserService {
    * @param userName Имя пользователя.
    * @return Новый пользователь.
    */
-  public UserEntity create(Long id, String userName) {
+  public UserEntity upsert(Long id, String userName) {
     var userEntity = new UserEntity();
     userEntity.setId(id);
     userEntity.setUserName(userName);
@@ -33,14 +32,4 @@ public class UserService {
     return userRepository.save(userEntity);
   }
 
-  /**
-   * Получение пользователя по идентификатору.
-   *
-   * @param userId Идентификатор пользователя.
-   * @return Пользователь.
-   */
-  public UserEntity getUserById(long userId) {
-    return userRepository.findById(userId)
-        .orElseThrow(() -> new UserNotFoundException(userId));
-  }
 }

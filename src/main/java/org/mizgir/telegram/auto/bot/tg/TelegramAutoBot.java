@@ -13,7 +13,7 @@ import org.mizgir.telegram.auto.bot.model.DataResult;
 import org.mizgir.telegram.auto.bot.model.EnterResult;
 import org.mizgir.telegram.auto.bot.model.KeyboardData;
 import org.mizgir.telegram.auto.bot.model.KeyboardData.KeyboardType;
-import org.mizgir.telegram.auto.bot.service.AutoRegistrationService;
+import org.mizgir.telegram.auto.bot.service.AutoService;
 import org.mizgir.telegram.auto.bot.service.ExpensesService;
 import org.mizgir.telegram.auto.bot.service.InfoService;
 import org.mizgir.telegram.auto.bot.service.MaintenanceService;
@@ -50,7 +50,7 @@ public class TelegramAutoBot extends DefaultLongPollingUpdateConsumer implements
 
   private final ObjectMapper objectMapper;
 
-  private final AutoRegistrationService autoRegistrationService;
+  private final AutoService autoService;
 
   private final UserActionStateService userActionStateService;
 
@@ -90,8 +90,6 @@ public class TelegramAutoBot extends DefaultLongPollingUpdateConsumer implements
             case ENTER_INFO_BY_MONTH -> onEnterInfoByMonthAutoMassage(id, text, update);
             case ENTER_INFO_BY_DAY -> onEnterInfoByDayAutoMassage(id, text, update);
           }
-
-          //TODO Обработка ввода данных.
         }
 
       }
@@ -105,57 +103,68 @@ public class TelegramAutoBot extends DefaultLongPollingUpdateConsumer implements
           Long userId = callbackQuery.getFrom().getId();
           if (KeyboardType.REGISTER.equals(keyboardData.keyboardType())) {
             String userName = callbackQuery.getFrom().getUserName();
-            autoRegistrationService.create(userId, userName);
+            autoService.create(userId, userName);
             SendMessage sendMessage = SendMessage.builder()
                 .chatId(callbackQuery.getMessage().getChatId())
-                .text("\uD83D\uDE97 Добавим автомобиль\n"
-                    + "\nВведите марку и модель одним сообщением.\n"
-                    + "Например: Toyota Camry, Volkswagen Passat, Lada Vesta.\n"
-                    + "\n\uD83D\uDC47 Напишите марку и модель:")
+                .text("""
+                    \uD83D\uDE97 Добавим автомобиль
+                    
+                    Введите марку и модель одним сообщением.
+                    Например: Toyota Camry, Volkswagen Passat, Lada Vesta.
+                    
+                    \uD83D\uDC47 Напишите марку и модель:""")
                 .build();
             sendTelegramMessage(sendMessage);
           } else if (KeyboardType.INFO_BY_PERIOD.equals(keyboardData.keyboardType())) {
             infoService.createByPeriod(userId);
             SendMessage sendMessage = SendMessage.builder()
                 .chatId(callbackQuery.getMessage().getChatId())
-                .text("\uD83D\uDCC5 С какого дня показать статистику?\n"
-                    + "\nВведите дату начала периода в формате ДД.ММ.ГГГГ.\n"
-                    + "Например: 01.10.2026.\n"
-                    + "\n"
-                    + "\uD83D\uDC47Ждём дату:")
+                .text("""
+                    \uD83D\uDCC5 С какого дня показать статистику?
+                    
+                    Введите дату начала периода в формате ДД.ММ.ГГГГ.
+                    Например: 01.10.2026.
+                    
+                    \uD83D\uDC47Ждём дату:""")
                 .build();
             sendTelegramMessage(sendMessage);
           } else if (KeyboardType.INFO_BY_YEAR.equals(keyboardData.keyboardType())) {
             infoService.createByYear(userId);
             SendMessage sendMessage = SendMessage.builder()
                 .chatId(callbackQuery.getMessage().getChatId())
-                .text("\uD83D\uDCC5 За какой год показать статистику?\n"
-                    + "\nВведите год в формате ГГГГ.\n"
-                    + "Например: 2026.\n"
-                    + "\n"
-                    + "\uD83D\uDC47Ждём год:")
+                .text("""
+                    \uD83D\uDCC5 За какой год показать статистику?
+                    
+                    Введите год в формате ГГГГ.
+                    Например: 2026.
+                    
+                    \uD83D\uDC47Ждём год:""")
                 .build();
             sendTelegramMessage(sendMessage);
           } else if (KeyboardType.INFO_BY_MONTH.equals(keyboardData.keyboardType())) {
             infoService.createByMonth(userId);
             SendMessage sendMessage = SendMessage.builder()
                 .chatId(callbackQuery.getMessage().getChatId())
-                .text("За какой месяц показать статистику?\n"
-                    + "\nВведите месяц числом от 1 до 12.\n"
-                    + "Например: 6 — это июнь.\n"
-                    + "\n"
-                    + "\uD83D\uDC47Ждём месяц:")
+                .text("""
+                    За какой месяц показать статистику?
+                    
+                    Введите месяц числом от 1 до 12.
+                    Например: 6 — это июнь.
+                    
+                    \uD83D\uDC47Ждём месяц:""")
                 .build();
             sendTelegramMessage(sendMessage);
           } else if (KeyboardType.INFO_BY_DAY.equals(keyboardData.keyboardType())) {
             infoService.createByDay(userId);
             SendMessage sendMessage = SendMessage.builder()
                 .chatId(callbackQuery.getMessage().getChatId())
-                .text("\uD83D\uDCC5 За какой день показать статистику?\n"
-                    + "\nВведите дату в формате ДД.ММ.ГГГГ.\n"
-                    + "Например: 01.10.2026.\n"
-                    + "\n"
-                    + "\uD83D\uDC47Ждём дату:")
+                .text("""
+                    \uD83D\uDCC5 За какой день показать статистику?
+                    
+                    Введите дату в формате ДД.ММ.ГГГГ.
+                    Например: 01.10.2026.
+                    
+                    \uD83D\uDC47Ждём дату:""")
                 .build();
             sendTelegramMessage(sendMessage);
           }
@@ -173,7 +182,7 @@ public class TelegramAutoBot extends DefaultLongPollingUpdateConsumer implements
    * @param update Обновление данных регистрации.
    */
   private void onRegisterAutoMessage(Long telegramUserId, String text, Update update) {
-    EnterResult result = autoRegistrationService.enterAutoData(telegramUserId, text);
+    EnterResult result = autoService.enterAutoData(telegramUserId, text);
 
     SendMessage sendMessage = SendMessage.builder()
         .chatId(update.getMessage().getChatId())
@@ -308,12 +317,13 @@ public class TelegramAutoBot extends DefaultLongPollingUpdateConsumer implements
     SendMessage sendMessage = SendMessage.builder()
         .chatId(update.getMessage().getChatId())
         .text(
-            "Привет! Я – ваш цифровой паспорт автомобиля. Помогу держать всю важную информацию о машине в одном месте и вовремя напомню о главном. Что я умею: "
-                + "\n📂 Хранить данные авто."
-                + "\n📅 Напоминать об окончании срока страховки и техосмотра. "
-                + "\n🛠 Вести электронную сервисную книжку (историю ТО и замен). "
-                + "\n💰 Считать расходы на бензин и ремонт. "
-                + "\nЧтобы начать работу и создать профиль автомобиля, нажмите кнопку ниже:")
+            """
+                Привет! Я – ваш цифровой паспорт автомобиля. Помогу держать всю важную информацию о машине в одном месте и вовремя напомню о главном. Что я умею:
+                📂 Хранить данные авто.
+                📅 Напоминать об окончании срока страховки и техосмотра.
+                🛠 Вести электронную сервисную книжку (историю ТО и замен).
+                💰 Считать расходы на бензин и ремонт.
+                Чтобы начать работу и создать профиль автомобиля, нажмите кнопку ниже:""")
 
         .replyMarkup(createKeyBoard(KeyboardType.REGISTER))
         .build();
@@ -369,30 +379,8 @@ public class TelegramAutoBot extends DefaultLongPollingUpdateConsumer implements
    */
   private void onRefuel(Update update) {
 
-    boolean result = refuelService.create(update.getMessage().getFrom().getId());
-    if (result) {
-      SendMessage sendMessage = SendMessage.builder()
-          .chatId(update.getMessage().getChatId())
-          .text("⛽\uFE0F Заправка автомобиля\n"
-              + "\n"
-              + "Введите текущий пробег автомобиля в километрах.\n"
-              + "Например: 120500 или 608.\n"
-              + "\n"
-              + "\uD83D\uDC47 Напишите пробег:")
-          .build();
+    sendDataResultMessage(update, refuelService.create(update.getMessage().getFrom().getId()));
 
-      sendTelegramMessage(sendMessage);
-    } else {
-      SendMessage sendMessage = SendMessage.builder()
-          .chatId(update.getMessage().getChatId())
-          .text("\uD83D\uDE97 Автомобиль не найден "
-              + "\nПохоже, вы ещё не добавили свой автомобиль в гараж."
-              + "\nДавайте это исправим — это займёт меньше минуты!"
-              + "\n\uD83D\uDC47 Нажмите кнопку ниже, чтобы добавить автомобиль: ")
-          .build();
-
-      sendTelegramMessage(sendMessage);
-    }
   }
 
   /**
@@ -401,29 +389,7 @@ public class TelegramAutoBot extends DefaultLongPollingUpdateConsumer implements
    * @param update Обновление чатов бота.
    */
   private void onMaintenance(Update update) {
-    boolean result = maintenanceService.create(update.getMessage().getFrom().getId());
-    if (result) {
-      SendMessage sendMessage = SendMessage.builder()
-          .chatId(update.getMessage().getChatId())
-          .text("\uD83D\uDD27 Сервисное обслуживание\n"
-              + "\n"
-              + "Введите текущий пробег автомобиля в километрах.\n"
-              + "Например: 608 или 120500.\n"
-              + "\n"
-              + "\uD83D\uDC47Напишите пробег:")
-          .build();
-      sendTelegramMessage(sendMessage);
-    } else {
-      SendMessage sendMessage = SendMessage.builder()
-          .chatId(update.getMessage().getChatId())
-          .text("\uD83D\uDE97 Автомобиль не найден "
-              + "\nПохоже, вы ещё не добавили свой автомобиль в гараж."
-              + "\nДавайте это исправим — это займёт меньше минуты!"
-              + "\n\uD83D\uDC47 Нажмите кнопку ниже, чтобы добавить автомобиль: ")
-          .build();
-
-      sendTelegramMessage(sendMessage);
-    }
+    sendDataResultMessage(update, maintenanceService.create(update.getMessage().getFrom().getId()));
   }
 
   /**
@@ -432,30 +398,22 @@ public class TelegramAutoBot extends DefaultLongPollingUpdateConsumer implements
    * @param update Обновление чатов бота.
    */
   private void onCosts(Update update) {
-    boolean result = expensesService.create(update.getMessage().getFrom().getId());
-    if (result) {
-      SendMessage sendMessage = SendMessage.builder()
-          .chatId(update.getMessage().getChatId())
-          .text("\uD83D\uDCB8 Добавление расхода\n"
-              + "\n"
-              + "Опишите, на что вы потратились.\n"
-              + "Например: «Куплен антифриз», «Замена масла», «Мойка автомобиля».\n"
-              + "\n"
-              + "✍️ Введите описание расхода:")
-          .build();
-      sendTelegramMessage(sendMessage);
-    } else {
-      SendMessage sendMessage = SendMessage.builder()
-          .chatId(update.getMessage().getChatId())
-          .text("""
-              \uD83D\uDE97 Автомобиль не найден\s
-              Похоже, вы ещё не добавили свой автомобиль в гараж.
-              Давайте это исправим — это займёт меньше минуты!
-              \uD83D\uDC47 Нажмите кнопку ниже, чтобы добавить автомобиль:\s""")
-          .build();
+    sendDataResultMessage(update, expensesService.create(update.getMessage().getFrom().getId()));
+  }
 
-      sendTelegramMessage(sendMessage);
-    }
+  /**
+   * Отправит сообщение по данным.
+   *
+   * @param update Обновление чат бота.
+   * @param dataResult объект результата данных.
+   */
+  private void sendDataResultMessage(Update update, DataResult dataResult) {
+    SendMessage sendMessage = SendMessage.builder()
+        .chatId(update.getMessage().getChatId())
+        .text(dataResult.message())
+        .replyMarkup(createKeyBoard(dataResult.types()))
+        .build();
+    sendTelegramMessage(sendMessage);
   }
 
   /**
@@ -464,13 +422,7 @@ public class TelegramAutoBot extends DefaultLongPollingUpdateConsumer implements
    * @param update Обновление чатов бота.
    */
   private void onInfo(Update update) {
-    DataResult dataResult = infoService.getDataResult(update.getMessage().getFrom().getId());
-    SendMessage sendMessage = SendMessage.builder()
-        .chatId(update.getMessage().getChatId())
-        .text(dataResult.message())
-        .replyMarkup(createKeyBoard(dataResult.types()))
-        .build();
-    sendTelegramMessage(sendMessage);
+    sendDataResultMessage(update, infoService.getDataResult(update.getMessage().getFrom().getId()));
   }
 
 
