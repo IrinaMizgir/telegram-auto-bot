@@ -13,6 +13,7 @@ import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import java.time.LocalDate;
 import java.time.Year;
+import java.util.List;
 import lombok.Data;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
@@ -70,10 +71,58 @@ public class AutoEntity {
   private Long run;
 
   /**
+   * Статус регистрации.
+   */
+  @Column
+  private RegistrationStatus status = RegistrationStatus.ENTER_NAME;
+
+  /**
    * Сущность связанного пользователя.
    */
   @OneToOne(cascade = CascadeType.ALL, fetch = FetchType.EAGER)
   @JoinColumn(name = "USER_ID", referencedColumnName = "ID")
   private UserEntity user;
 
+  /**
+   * Статусы регистрации.
+   */
+  public enum RegistrationStatus {
+    /**
+     * Ввод модели и марки автомобиля.
+     */
+    ENTER_NAME,
+
+    /**
+     * Ввод года выпуска автомобиля.
+     */
+    ENTER_YEAR,
+
+    /**
+     * Ввод пробега автомобиля.
+     */
+    ENTER_RUN,
+
+    /**
+     * Завершения ввода данных автомобиля.
+     */
+    FINISHED;
+
+    /**
+     * Список статусов.
+     */
+    private static final List<RegistrationStatus> VALUES = List.of(values());
+
+    /**
+     * Получение следующего статуса регистрации.
+     *
+     * @param status Статус регистрации.
+     * @return Следующий статус регистрации.
+     */
+    public static RegistrationStatus getNextStatus(RegistrationStatus status) {
+      int currentIndex = VALUES.indexOf(status);
+
+      return VALUES.get(currentIndex + 1);
+
+    }
+  }
 }

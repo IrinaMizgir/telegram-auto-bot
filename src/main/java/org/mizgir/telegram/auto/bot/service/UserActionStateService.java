@@ -3,6 +3,7 @@ package org.mizgir.telegram.auto.bot.service;
 import lombok.RequiredArgsConstructor;
 import org.mizgir.telegram.auto.bot.entity.UserActionStateEntity;
 import org.mizgir.telegram.auto.bot.entity.UserActionStateEntity.ActionType;
+import org.mizgir.telegram.auto.bot.entity.UserEntity;
 import org.mizgir.telegram.auto.bot.exception.UserActionStateNotFoundException;
 import org.mizgir.telegram.auto.bot.repository.UserActionStateRepository;
 import org.springframework.stereotype.Service;
@@ -21,7 +22,6 @@ public class UserActionStateService {
 
   public void changeActionTypeById(long telegramUserId, ActionType actionType) {
     userActionStateRepository.updateActionType(telegramUserId, actionType);
-
   }
 
 
@@ -36,6 +36,19 @@ public class UserActionStateService {
         .map(UserActionStateEntity::getType)
         .orElseThrow(() -> new UserActionStateNotFoundException(telegramUserId));
 
+  }
+
+  /**
+   * Создание состояния действия нового пользователя.
+   * @param telegramUserId Идентификатор пользователя.
+   * @param userEntity Пользователь.
+   */
+  public void upsert(Long telegramUserId, UserEntity userEntity, ActionType actionType) {
+    var userActionStateEntity = new UserActionStateEntity();
+    userActionStateEntity.setId(telegramUserId);
+    userActionStateEntity.setUser(userEntity);
+    userActionStateEntity.setType(actionType);
+    userActionStateRepository.save(userActionStateEntity);
   }
 
 

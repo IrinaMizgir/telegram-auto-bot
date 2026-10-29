@@ -1,18 +1,22 @@
 package org.mizgir.telegram.auto.bot.service;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.math.NumberUtils;
+import org.jspecify.annotations.NonNull;
 import org.mizgir.telegram.auto.bot.entity.AutoEntity;
 import org.mizgir.telegram.auto.bot.entity.MaintenanceEntity;
 import org.mizgir.telegram.auto.bot.entity.MaintenanceEntity.MaintenanceStatus;
 import org.mizgir.telegram.auto.bot.entity.UserActionStateEntity.ActionType;
+import org.mizgir.telegram.auto.bot.factory.DataResultFactory;
+import org.mizgir.telegram.auto.bot.model.DataResult;
 import org.mizgir.telegram.auto.bot.model.EnterResult;
 import org.mizgir.telegram.auto.bot.repository.MaintenanceRepository;
+import org.mizgir.telegram.auto.bot.util.BigDecimalUtils;
+import org.mizgir.telegram.auto.bot.util.NumberOps;
+import org.mizgir.telegram.auto.bot.util.StringOps;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,6 +36,8 @@ public class MaintenanceService {
 
   private final UserActionStateService userActionStateService;
 
+  private final DataResultFactory dataResultFactory;
+
 
   /**
    * Создание новой записи СО.
@@ -39,15 +45,21 @@ public class MaintenanceService {
    * @return true - если начат новый процесс СО.
    */
   @Transactional
-  public boolean create(Long telegramUserId) {
-    Optional<AutoEntity> autoEntity = autoService.findByUserId(telegramUserId);
+  public DataResult create(Long telegramUserId) {
+    Optional<AutoEntity> autoEntity = autoService.findByUserIdAndFinished(telegramUserId);
     if (autoEntity.isEmpty()) {
-      return false;
+      return dataResultFactory.createInvalid();
     }
     userActionStateService.changeActionTypeById(telegramUserId, ActionType.ENTER_MAINTENANCE);
     autoEntity.ifPresent(this::upsertMaintenance);
 
-    return true;
+    return dataResultFactory.createValid("""
+        \uD83D\uDD27 Сервисное обслуживание
+        
+        Введите текущий пробег автомобиля в километрах.
+        Например: 608 или 120500.
+        
+        \uD83D\uDC47Напишите пробег:""");
   }
 
   /**
@@ -97,34 +109,7 @@ public class MaintenanceService {
     MaintenanceEntity maintenanceEntity = maintenanceRepository.getByAutoIdAndStatusNot(autoEntity.getId(),
         MaintenanceStatus.FINISHED);
     MaintenanceStatus status = maintenanceEntity.getStatus();
-    EnterMaintenanceInformationResultType resultType = switch (status) {
-      case ENTER_RUN -> {
-        if (NumberUtils.isDigits(text)) {
-          long run = Long.parseLong(text);
-          if (run > autoEntity.getRun()) {
-            maintenanceEntity.setDistance(run - autoEntity.getRun());
-            maintenanceEntity.setRun(run);
-            autoEntity.setRun(run);
-            yield EnterMaintenanceInformationResultType.SUCCESS_ENTER_RUN;
-          }
-        }
-        yield EnterMaintenanceInformationResultType.INCORRECT_RUN;
-      }
-      case ENTER_DESCRIPTION -> {
-        maintenanceEntity.setDescription(text);
-        yield EnterMaintenanceInformationResultType.SUCCESS_ENTER_DESCRIPTION;
-      }
-
-      case ENTER_COST -> {
-        if (NumberUtils.isParsable(text)) {
-          double doubleCost = Double.parseDouble(text);
-          maintenanceEntity.setCost(BigDecimal.valueOf(doubleCost).setScale(2, RoundingMode.HALF_UP));
-          yield EnterMaintenanceInformationResultType.SUCCESS;
-        }
-        yield EnterMaintenanceInformationResultType.INCORRECT_COST;
-      }
-      default -> throw new RuntimeException("Incorrect auto registration status");
-    };
+    EnterMaintenanceInformationResultType resultType = trySetNewData(text, status, autoEntity, maintenanceEntity);
 
     if (resultType.success) {
       maintenanceEntity.setAuto(autoEntity);
@@ -156,6 +141,52 @@ public class MaintenanceService {
       }
     }
     return new EnterResult(resultType.success, resultType.message);
+  }
+
+  private @NonNull EnterMaintenanceInformationResultType trySetNewData(
+      String text,
+      MaintenanceStatus status,
+      AutoEntity autoEntity,
+      MaintenanceEntity maintenanceEntity
+  ) {
+    return switch (status) {
+      case ENTER_RUN -> {
+        if (NumberOps.isNotDigits(text)) {
+          yield EnterMaintenanceInformationResultType.INCORRECT_RUN;
+        }
+
+        long run = Long.parseLong(text);
+        if (run < autoEntity.getRun()) {
+          yield EnterMaintenanceInformationResultType.INCORRECT_RUN_LESS;
+        }
+        maintenanceEntity.setDistance(run - autoEntity.getRun());
+        maintenanceEntity.setRun(run);
+        autoEntity.setRun(run);
+        yield EnterMaintenanceInformationResultType.SUCCESS_ENTER_RUN;
+
+      }
+      case ENTER_DESCRIPTION -> {
+        maintenanceEntity.setDescription(text);
+        yield EnterMaintenanceInformationResultType.SUCCESS_ENTER_DESCRIPTION;
+      }
+
+      case ENTER_COST -> {
+        String normalizedText = StringOps.replaceCommaToDot(text);
+        if (NumberOps.isNotParsable(normalizedText)) {
+          yield EnterMaintenanceInformationResultType.INCORRECT_COST_NOT_NUMBER;
+        }
+
+        double doubleCost = Double.parseDouble(normalizedText);
+        if (doubleCost <= 0) {
+          yield EnterMaintenanceInformationResultType.INCORRECT_COST_NEGATIVE;
+        }
+
+        maintenanceEntity.setCost(BigDecimalUtils.valueOf(doubleCost));
+        yield EnterMaintenanceInformationResultType.SUCCESS;
+
+      }
+      default -> throw new RuntimeException("Incorrect auto registration status");
+    };
   }
 
   /**
@@ -190,24 +221,25 @@ public class MaintenanceService {
    * Тип результата ввода информации.
    */
   @RequiredArgsConstructor
-  public enum EnterMaintenanceInformationResultType {
+  private enum EnterMaintenanceInformationResultType {
 
     /**
      * Успешно введен пробег.
      */
-    SUCCESS_ENTER_RUN(true, "\uD83D\uDEE0 Сервисные работы\n"
-        + "\n"
-        + "Введите краткое описание выполненных работ:\n"
-        + "• что заменили\n"
-        + "• что отремонтировали\n"
-        + "• какие услуги оказали\n"
-        + "\n"
-        + "Примеры:\n"
-        + "Замена масла\n"
-        + "Замена тормозных колодок\n"
-        + "Шиномонтаж\n"
-        + "\n"
-        + "\uD83D\uDC47 Напишите описание:"),
+    SUCCESS_ENTER_RUN(true, """
+        \uD83D\uDEE0 Сервисные работы
+        
+        Введите краткое описание выполненных работ:
+        • что заменили
+        • что отремонтировали
+        • какие услуги оказали
+        
+        Примеры:
+        Замена масла
+        Замена тормозных колодок
+        Шиномонтаж
+        
+        \uD83D\uDC47 Напишите описание:"""),
 
     /**
      * Успешно введена описание работ СО.
@@ -234,15 +266,45 @@ public class MaintenanceService {
         Введите число километров, например: 608 или 120500."""),
 
     /**
+     * Некорректный пробег (пробег меньше предыдущего).
+     */
+    INCORRECT_RUN_LESS(false, """
+        \uD83E\uDD14Кажется, пробег введён неверно
+        Введенный пробег меньше чем предыдущий.
+        Введите число километров, например: 608 или 120500."""),
+
+    /**
      * Некорректная стоимость СО.
      */
-    INCORRECT_COST(false, "\uD83D\uDE42Похоже, стоимость не распозналась\n"
-        + "\n"
-        + "Введите сумму в BYN — просто число, больше нуля.\n"
-        + "Например: 55.00 или 120.50.\n"
-        + "\n"
-        + "\uD83D\uDC47 Попробуем ещё раз?");
-
+    INCORRECT_COST(false, """
+        \uD83D\uDE42Похоже, стоимость не распозналась
+        
+        Введите сумму в BYN — просто число, больше нуля.
+        Например: 55.00 или 120.50.
+        
+        \uD83D\uDC47 Попробуем ещё раз?"""),
+    /**
+     * Некорректная стоимость СО (не число).
+     */
+    INCORRECT_COST_NOT_NUMBER(false, """
+        \uD83D\uDE42Похоже, стоимость не распозналась
+        
+         не является числом
+        Введите сумму в BYN — просто число, больше нуля.
+        Например: 55.00 или 120.50.
+        
+        \uD83D\uDC47 Попробуем ещё раз?"""),
+    /**
+     * Некорректная стоимость СО (число равно 0 или негативное).
+     */
+    INCORRECT_COST_NEGATIVE(false, """
+        \uD83D\uDE42Похоже, стоимость не распозналась
+        
+         Число не должно быть негативным или нулём
+        Введите сумму в BYN — просто число, больше нуля.
+        Например: 55.00 или 120.50.
+        
+        \uD83D\uDC47 Попробуем ещё раз?""");
     /**
      * Признак успешности.
      */

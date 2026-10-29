@@ -1,17 +1,21 @@
 package org.mizgir.telegram.auto.bot.service;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
-import org.apache.commons.lang3.math.NumberUtils;
+import org.jspecify.annotations.NonNull;
 import org.mizgir.telegram.auto.bot.entity.AutoEntity;
 import org.mizgir.telegram.auto.bot.entity.ExpensesEntity;
 import org.mizgir.telegram.auto.bot.entity.ExpensesEntity.ExpensesStatus;
 import org.mizgir.telegram.auto.bot.entity.UserActionStateEntity.ActionType;
+import org.mizgir.telegram.auto.bot.factory.DataResultFactory;
+import org.mizgir.telegram.auto.bot.model.DataResult;
 import org.mizgir.telegram.auto.bot.model.EnterResult;
 import org.mizgir.telegram.auto.bot.repository.ExpensesRepository;
+import org.mizgir.telegram.auto.bot.util.BigDecimalUtils;
+import org.mizgir.telegram.auto.bot.util.NumberOps;
+import org.mizgir.telegram.auto.bot.util.StringOps;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,21 +34,29 @@ public class ExpensesService {
 
   private final UserActionStateService userActionStateService;
 
+  private final DataResultFactory dataResultFactory;
+
   /**
    * Создание новой записи расходов.
    * @param telegramUserId Идентификатор пользователя.
    * @return true - если начат новый процесс расходов.
    */
   @Transactional
-  public boolean create(Long telegramUserId) {
-    Optional<AutoEntity> autoEntity = autoService.findByUserId(telegramUserId);
+  public DataResult create(Long telegramUserId) {
+    Optional<AutoEntity> autoEntity = autoService.findByUserIdAndFinished(telegramUserId);
     if (autoEntity.isEmpty()) {
-      return false;
+      return dataResultFactory.createInvalid();
     }
     userActionStateService.changeActionTypeById(telegramUserId, ActionType.ENTER_EXPENSES);
     autoEntity.ifPresent(this::upsertExpenses);
 
-    return true;
+    return dataResultFactory.createValid("""
+        \uD83D\uDCB8 Добавление расхода
+        
+        Опишите, на что вы потратились.
+        Например: «Куплен антифриз», «Мойка автомобиля».
+        
+        ✍️ Введите описание расхода:""");
   }
 
   /**
@@ -95,21 +107,7 @@ public class ExpensesService {
     ExpensesEntity expensesEntity = expensesRepository.getByAutoIdAndStatusNot(autoEntity.getId(),
         ExpensesStatus.FINISHED);
     ExpensesStatus status = expensesEntity.getStatus();
-    EnterExpensesInformationResultType resultType = switch (status) {
-      case ENTER_DESCRIPTION -> {
-        expensesEntity.setDescription(text);
-        yield EnterExpensesInformationResultType.SUCCESS_ENTER_DESCRIPTION;
-      }
-      case ENTER_COST -> {
-        if (NumberUtils.isParsable(text)) {
-          double doubleCost = Double.parseDouble(text);
-          expensesEntity.setCost(BigDecimal.valueOf(doubleCost).setScale(2, RoundingMode.HALF_UP));
-          yield EnterExpensesInformationResultType.SUCCESS;
-        }
-        yield EnterExpensesInformationResultType.INCORRECT_COST;
-      }
-      default -> throw new RuntimeException("Incorrect auto registration status");
-    };
+    EnterExpensesInformationResultType resultType = trySetNewData(text, status, expensesEntity);
     if (resultType.success) {
       expensesEntity.setAuto(autoEntity);
       ExpensesStatus nextStatus = ExpensesStatus.getNextStatus(status);
@@ -133,6 +131,31 @@ public class ExpensesService {
       }
     }
     return new EnterResult(resultType.success, resultType.message);
+  }
+
+  private @NonNull EnterExpensesInformationResultType trySetNewData(String text,
+      ExpensesStatus status, ExpensesEntity expensesEntity) {
+    return switch (status) {
+      case ENTER_DESCRIPTION -> {
+        expensesEntity.setDescription(text);
+        yield EnterExpensesInformationResultType.SUCCESS_ENTER_DESCRIPTION;
+      }
+      case ENTER_COST -> {
+        String normalizedText = StringOps.replaceCommaToDot(text);
+        if (NumberOps.isNotParsable(normalizedText)) {
+          yield EnterExpensesInformationResultType.INCORRECT_COST_NOT_NUMBER;
+        }
+
+        double doubleCost = Double.parseDouble(normalizedText);
+        if (doubleCost <= 0) {
+          yield EnterExpensesInformationResultType.INCORRECT_COST_NEGATIVE;
+        }
+
+        expensesEntity.setCost(BigDecimalUtils.valueOf(doubleCost));
+        yield EnterExpensesInformationResultType.SUCCESS;
+      }
+      default -> throw new RuntimeException("Incorrect auto registration status");
+    };
   }
 
   /**
@@ -170,16 +193,31 @@ public class ExpensesService {
     /**
      * Успешно введена описание расходов.
      */
-    SUCCESS_ENTER_DESCRIPTION(true, "\uD83D\uDCB0 Введите сумму расхода\n"
-        + "\nУкажите сумму в белорусских рублях (BYN)."
-        + "\nНапример: 21.00 или 21\n"
-        + "\n\uD83D\uDC47 Напишите сумму сообщением:"),
+    SUCCESS_ENTER_DESCRIPTION(true, """
+        \uD83D\uDCB0 Введите сумму расхода
+        
+        Укажите сумму в белорусских рублях (BYN).
+        Например: 21.00 или 21
+        
+        \uD83D\uDC47 Напишите сумму сообщением:"""),
 
     /**
-     * Некорректная стоимость расходов.
+     * Некорректная стоимость расходов (строка не является числом).
      */
-    INCORRECT_COST(false, "\uD83E\uDD14 Кажется, сумма введена неверно\n"
-        + "\nВведите число в BYN, например: 21.00."),
+    INCORRECT_COST_NOT_NUMBER(false, """
+        \uD83E\uDD14 Кажется, сумма введена неверно
+        
+        Не является числом
+        Введите число в BYN, например: 21.00."""),
+
+    /**
+     * Некорректная стоимость расходов (негативное число и ноль).
+     */
+    INCORRECT_COST_NEGATIVE(false, """
+        \uD83E\uDD14 Кажется, сумма введена неверно
+        
+        Число не должно быть негативным или нулём
+        Введите число в BYN, например: 21.00."""),
 
     /**
      * Успешно.

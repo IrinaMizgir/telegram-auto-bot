@@ -8,15 +8,16 @@ import java.time.Year;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
-import java.util.Collections;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.jspecify.annotations.NonNull;
 import org.mizgir.telegram.auto.bot.entity.AutoEntity;
 import org.mizgir.telegram.auto.bot.entity.InfoReportEntity;
 import org.mizgir.telegram.auto.bot.entity.InfoReportEntity.InfoReportStatus;
 import org.mizgir.telegram.auto.bot.entity.UserActionStateEntity.ActionType;
+import org.mizgir.telegram.auto.bot.factory.DataResultFactory;
 import org.mizgir.telegram.auto.bot.model.DataResult;
 import org.mizgir.telegram.auto.bot.model.EnterResult;
 import org.mizgir.telegram.auto.bot.model.KeyboardData.KeyboardType;
@@ -30,6 +31,7 @@ import org.springframework.transaction.annotation.Transactional;
  * @author Ирина Мизгир
  * @date 17.10.2026 14:38
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class InfoService {
@@ -45,6 +47,8 @@ public class InfoService {
   private final InfoReportRepository infoReportRepository;
 
   private final UserActionStateService userActionStateService;
+
+  private final DataResultFactory dataResultFactory;
 
   /**
    * Создание новой записи отчёта.
@@ -63,7 +67,7 @@ public class InfoService {
    * @return true - если начат отчёт.
    */
   private boolean createByActionType(Long telegramUserId, ActionType actionType) {
-    Optional<AutoEntity> autoEntity = autoService.findByUserId(telegramUserId);
+    Optional<AutoEntity> autoEntity = autoService.findByUserIdAndFinished(telegramUserId);
     if (autoEntity.isEmpty()) {
       return false;
     }
@@ -154,22 +158,29 @@ public class InfoService {
 
     if (NumberUtils.isDigits(text)) {
       Year year = Year.of(Integer.parseInt(text));
-      LocalDate periodStart = year.atDay(1);
-      LocalDate periodEnd = year.atDay(year.length());
-      infoReportEntity.setAuto(autoEntity);
-      infoReportEntity.setPeriodStartDate(periodStart);
-      infoReportEntity.setPeriodEndDate(periodEnd);
-      infoReportEntity.setStatus(InfoReportStatus.FINISHED);
-      infoReportRepository.save(infoReportEntity);
 
-      return toSuccessEnterResult(autoEntity, infoReportEntity);
+      Year autoYear = Year.of(autoEntity.getCreationDate().getYear());
+      if (year.isAfter(autoYear) || year.equals(autoYear)) {
+        LocalDate periodStart = year.atDay(1);
+        LocalDate periodEnd = year.atDay(year.length());
+        infoReportEntity.setAuto(autoEntity);
+        infoReportEntity.setPeriodStartDate(periodStart);
+        infoReportEntity.setPeriodEndDate(periodEnd);
+        infoReportEntity.setStatus(InfoReportStatus.FINISHED);
+        infoReportRepository.save(infoReportEntity);
+
+        return toSuccessEnterResult(autoEntity, infoReportEntity);
+
+      }
+
     }
 
-    return new EnterResult(false, "🙂 Кажется, год не распознался\n"
-        + "\n"
-        + "Введите год в формате ГГГГ, например: 2026.\n"
-        + "\n"
-        + "👇 Попробуем ещё раз?");
+    return new EnterResult(false, """
+        🙂 Кажется, год не распознался
+        
+        Введите год в формате ГГГГ, например: 2026.
+        
+        👇 Попробуем ещё раз?""");
   }
 
   /**
@@ -201,11 +212,12 @@ public class InfoService {
 
     }
 
-    return new EnterResult(false, "🙂 Кажется, месяц не распознался\n"
-        + "\n"
-        + "Введите месяц числом от 1 до 12, например: 6 — это июнь.\n"
-        + "\n"
-        + "👇 Попробуем ещё раз?");
+    return new EnterResult(false, """
+        🙂 Кажется, месяц не распознался
+        
+        Введите месяц числом от 1 до 12, например: 6 — это июнь.
+        
+        👇 Попробуем ещё раз?""");
   }
 
   /**
@@ -232,11 +244,12 @@ public class InfoService {
 
     }
 
-    return new EnterResult(false, "\uD83D\uDE42 Кажется, дата не распозналась\n"
-        + "\n"
-        + "Введите дату в формате ДД.ММ.ГГГГ, например: 31.10.2026.\n"
-        + "\n"
-        + "\uD83D\uDC47 Попробуем ещё раз?");
+    return new EnterResult(false, """
+        \uD83D\uDE42 Кажется, дата не распозналась
+        
+        Введите дату в формате ДД.ММ.ГГГГ, например: 31.10.2026.
+        
+        \uD83D\uDC47 Попробуем ещё раз?""");
   }
 
   /**
@@ -251,32 +264,8 @@ public class InfoService {
     InfoReportEntity infoReportEntity = infoReportRepository.getByAutoIdAndStatusNot(autoEntity.getId(),
         InfoReportStatus.FINISHED);
     InfoReportStatus status = infoReportEntity.getStatus();
-    EnterInfoReportInformationResultType resultType = switch (status) {
-      case ENTER_START_DATE -> {
-        LocalDate localDate = parseOrNull(text);
-        if (localDate == null
-            || localDate.isAfter(LocalDate.now())
-            || localDate.isAfter(autoEntity.getCreationDate())
-        ) {
-          yield EnterInfoReportInformationResultType.INCORRECT_START_DATE;
-        }
-        infoReportEntity.setPeriodStartDate(localDate);
-        yield EnterInfoReportInformationResultType.SUCCESS_ENTER_START_DATE;
-      }
-      case ENTER_END_DATE -> {
-        LocalDate localDate = parseOrNull(text);
-        if (localDate == null
-            || localDate.isAfter(LocalDate.now())
-            || localDate.isAfter(autoEntity.getCreationDate())
-            || localDate.isBefore(infoReportEntity.getPeriodStartDate())
-        ) {
-          yield EnterInfoReportInformationResultType.INCORRECT_END_DATE;
-        }
-        infoReportEntity.setPeriodEndDate(localDate);
-        yield EnterInfoReportInformationResultType.SUCCESS;
-      }
-      default -> throw new RuntimeException("Incorrect info report");
-    };
+    EnterInfoReportInformationResultType resultType = trySetNewData(text, status, autoEntity,
+        infoReportEntity);
     if (resultType.success) {
       infoReportEntity.setAuto(autoEntity);
       InfoReportStatus nextStatus = InfoReportStatus.getNextStatus(status);
@@ -288,6 +277,45 @@ public class InfoService {
       }
     }
     return new EnterResult(resultType.success, resultType.message);
+  }
+
+  private @NonNull EnterInfoReportInformationResultType trySetNewData(String text, InfoReportStatus status,
+      AutoEntity autoEntity, InfoReportEntity infoReportEntity) {
+    return switch (status) {
+      case ENTER_START_DATE -> {
+        LocalDate localDate = parseOrNull(text);
+        if (localDate == null) {
+          yield EnterInfoReportInformationResultType.INCORRECT_NOT_START_DATE;
+        }
+        if (localDate.isAfter(LocalDate.now())) {
+          yield EnterInfoReportInformationResultType.INCORRECT_FUTURE_START_DATE;
+        }
+        if (localDate.isBefore(autoEntity.getCreationDate())) {
+          yield EnterInfoReportInformationResultType.INCORRECT_START_DATE_BEFORE_AUTO_CREATION_DATE;
+        }
+        infoReportEntity.setPeriodStartDate(localDate);
+        yield EnterInfoReportInformationResultType.SUCCESS_ENTER_START_DATE;
+      }
+      case ENTER_END_DATE -> {
+        LocalDate localDate = parseOrNull(text);
+        if (localDate == null) {
+          yield EnterInfoReportInformationResultType.INCORRECT_NOT_END_DATE;
+        }
+        if (localDate.isAfter(LocalDate.now())) {
+          yield EnterInfoReportInformationResultType.INCORRECT_FUTURE_END_DATE;
+        }
+        if (localDate.isBefore(autoEntity.getCreationDate())) {
+          yield EnterInfoReportInformationResultType.INCORRECT_END_DATE_BEFORE_AUTO_CREATION_DATE;
+        }
+        if (localDate.isBefore(infoReportEntity.getPeriodStartDate())
+        ) {
+          yield EnterInfoReportInformationResultType.INCORRECT_END_DATE_BEFORE_START_DATE;
+        }
+        infoReportEntity.setPeriodEndDate(localDate);
+        yield EnterInfoReportInformationResultType.SUCCESS;
+      }
+      default -> throw new RuntimeException("Incorrect info report");
+    };
   }
 
   private @NonNull EnterResult toSuccessEnterResult(AutoEntity autoEntity, InfoReportEntity infoReportEntity) {
@@ -349,6 +377,7 @@ public class InfoService {
       DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd.MM.yyyy");
       return LocalDate.from(formatter.parse(text));
     } catch (DateTimeParseException exception) {
+      log.info("Failed to parse date: {}", text, exception);
       return null;
     }
   }
@@ -359,21 +388,9 @@ public class InfoService {
    * @return Данные.
    */
   public DataResult getDataResult(long userId) {
-    return autoService.findByUserId(userId)
+    return autoService.findByUserIdAndFinished(userId)
         .map(this::calculateStatistic)
-        .orElseGet(this::createAutoNotFoundDataResult);
-
-  }
-
-  /**
-   * Создание данные если авто не найдено.
-   * @return Данные.
-   */
-  private @NonNull DataResult createAutoNotFoundDataResult() {
-    return new DataResult(
-        Collections.singleton(KeyboardType.REGISTER),
-        "Автомобиль не найден. Пожалуйста, добавьте автомобиль."
-    );
+        .orElseGet(dataResultFactory::createInvalid);
 
   }
 
@@ -425,7 +442,7 @@ public class InfoService {
    * Тип результата ввода информации.
    */
   @RequiredArgsConstructor
-  public enum EnterInfoReportInformationResultType {
+  private enum EnterInfoReportInformationResultType {
 
     /**
      * Успешно введенная дата начала периода.
@@ -441,22 +458,77 @@ public class InfoService {
     SUCCESS(true, "\uD83D\uDCCAСтатистика по вашему автомобилю за период: \n"),
 
     /**
-     * Некорректная дата начала периода.
+     * Некорректная дата начала периода (не является датой).
      */
-    INCORRECT_START_DATE(false, "\uD83D\uDE42 Кажется, дата не распозналась\n"
-        + "\n"
-        + "Введите дату в формате ДД.ММ.ГГГГ, например: 31.10.2026.\n"
-        + "\n"
-        + "\uD83D\uDC47 Попробуем ещё раз?"),
+    INCORRECT_NOT_START_DATE(false, """
+        \uD83D\uDE42 Кажется, дата не распозналась
+        
+        Введите дату в формате ДД.ММ.ГГГГ, например: 31.10.2026.
+        
+        \uD83D\uDC47 Попробуем ещё раз?"""),
 
     /**
-     * Некорректная дата окончания периода.
+     * Некорректная дата начала периода (дата в будущем).
      */
-    INCORRECT_END_DATE(false, "\uD83D\uDE42Кажется, дата не распозналась\n"
-        + "\n"
-        + "Введите дату в формате ДД.ММ.ГГГГ, например: 31.10.2026.\n"
-        + "\n"
-        + "\uD83D\uDC47 Попробуем ещё раз?");
+    INCORRECT_FUTURE_START_DATE(false, """
+        \uD83D\uDE42 Кажется, дата не распозналась
+        
+        дата в будущем
+        Введите дату в формате ДД.ММ.ГГГГ, например: 31.10.2026.
+        
+        \uD83D\uDC47 Попробуем ещё раз?"""),
+
+    /**
+     * Некорректная дата начала периода (дата до создания автомобиля).
+     */
+    INCORRECT_START_DATE_BEFORE_AUTO_CREATION_DATE(false, """
+        \uD83D\uDE42 Кажется, дата не распозналась
+        
+        Дата до создания авто
+        Введите дату в формате ДД.ММ.ГГГГ, например: 31.10.2026.
+        
+        \uD83D\uDC47 Попробуем ещё раз?"""),
+
+    /**
+     * Некорректная дата окончания периода (не дата).
+     */
+    INCORRECT_NOT_END_DATE(false, """
+        \uD83D\uDE42Кажется, дата не распозналась
+        
+        Введите дату в формате ДД.ММ.ГГГГ, например: 31.10.2026.
+        
+        \uD83D\uDC47 Попробуем ещё раз?"""),
+    /**
+     * Некорректная дата окончания периода (дата будущего).
+     */
+    INCORRECT_FUTURE_END_DATE(false, """
+        \uD83D\uDE42Кажется, дата не распозналась
+        
+        дата в будущем
+        Введите дату в формате ДД.ММ.ГГГГ, например: 31.10.2026.
+        
+        \uD83D\uDC47 Попробуем ещё раз?"""),
+    /**
+     * Некорректная дата начала периода (дата до создания автомобиля).
+     */
+    INCORRECT_END_DATE_BEFORE_AUTO_CREATION_DATE(false, """
+        \uD83D\uDE42 Кажется, дата не распозналась
+        
+        Дата до создания авто
+        Введите дату в формате ДД.ММ.ГГГГ, например: 31.10.2026.
+        
+        \uD83D\uDC47 Попробуем ещё раз?"""),
+
+    /**
+     * Некорректная дата начала периода (дата до начала периода).
+     */
+    INCORRECT_END_DATE_BEFORE_START_DATE(false, """
+        \uD83D\uDE42 Кажется, дата не распозналась
+        
+        Дата до начала периода
+        Введите дату в формате ДД.ММ.ГГГГ, например: 31.10.2026.
+        
+        \uD83D\uDC47 Попробуем ещё раз?""");
 
     /**
      * Признак успешности.
