@@ -6,6 +6,8 @@ import org.mizgir.telegram.auto.bot.model.KeyboardData.KeyboardType;
 import org.springframework.stereotype.Component;
 
 /**
+ * Фабрика для создания результата.
+ *
  * @author Ирина Мизгир
  * @date 27.10.2026 19:10
  */
@@ -14,6 +16,7 @@ public class DataResultFactory {
 
   /**
    * Создание данные если авто не найдено.
+   *
    * @return Данные.
    */
   public DataResult createInvalid() {
@@ -26,6 +29,12 @@ public class DataResultFactory {
             \uD83D\uDC47 Нажмите кнопку ниже, чтобы добавить автомобиль:""");
   }
 
+  /**
+   * Создание данные если результат валидный.
+   *
+   * @param message Сообщение.
+   * @return Данные.
+   */
   public DataResult createValid(String message) {
     return new DataResult(Collections.emptySet(), message);
   }

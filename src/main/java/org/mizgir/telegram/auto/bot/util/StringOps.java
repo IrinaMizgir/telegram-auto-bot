@@ -1,5 +1,7 @@
 package org.mizgir.telegram.auto.bot.util;
 
+import lombok.AccessLevel;
+import lombok.NoArgsConstructor;
 import org.apache.commons.lang3.Strings;
 
 /**
@@ -7,6 +9,7 @@ import org.apache.commons.lang3.Strings;
  * @author Ирина Мизгир
  * @date 29.10.2026 19:20
  */
+@NoArgsConstructor(access = AccessLevel.PRIVATE)
 public final class StringOps {
 
   /**

@@ -7,6 +7,9 @@ import org.mizgir.telegram.auto.bot.model.KeyboardData.KeyboardType;
 /**
  * Введенная информация.
  *
+ * @param result Результат.
+ * @param message Сообщение.
+ * @param types Типы кнопок.
  * @author Ирина Мизгир
  * @date 12.10.2026 21:59
  */

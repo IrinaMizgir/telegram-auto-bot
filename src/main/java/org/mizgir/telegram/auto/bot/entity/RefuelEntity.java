@@ -132,10 +132,7 @@ public class RefuelEntity {
      * @return Следующий статус заправки.
      */
     public static RefuelStatus getNextStatus(RefuelStatus status) {
-      int currentIndex = VALUES.indexOf(status);
-
-      return VALUES.get(currentIndex + 1);
-
+      return VALUES.get(VALUES.indexOf(status) + 1);
     }
   }
 }

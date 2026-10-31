@@ -38,9 +38,9 @@ public class MaintenanceService {
 
   private final DataResultFactory dataResultFactory;
 
-
   /**
    * Создание новой записи СО.
+   *
    * @param telegramUserId Идентификатор пользователя.
    * @return true - если начат новый процесс СО.
    */
@@ -75,6 +75,7 @@ public class MaintenanceService {
 
   /**
    * Обрабатывает найденную существующую запись о СО.
+   *
    * @param maintenanceEntity Найденная существующая запись о СО.
    * @param autoEntity Автомобиль, для которого создаётся запись о СО.
    */
@@ -97,10 +98,10 @@ public class MaintenanceService {
   }
 
   /**
-   * Ввод информации заправки.
-   *MaintenanceStatus
+   * Ввод информации заправки. MaintenanceStatus
+   *
    * @param telegramUserId Идентификатор пользователя.
-   * @param text           Введенные данные заправки в виде текста.
+   * @param text Введенные данные заправки в виде текста.
    * @return Результат.
    */
   public EnterResult enterMaintenanceData(Long telegramUserId, String text) {
@@ -185,12 +186,13 @@ public class MaintenanceService {
         yield EnterMaintenanceInformationResultType.SUCCESS;
 
       }
-      default -> throw new RuntimeException("Incorrect auto registration status");
+      default -> throw new IllegalStateException("Incorrect auto registration status");
     };
   }
 
   /**
    * Получение общей суммы за СО.
+   *
    * @param autoEntity Сущность автомобиля.
    * @return Сумма расхода за СО.
    */
@@ -205,6 +207,7 @@ public class MaintenanceService {
 
   /**
    * Получение суммарной информации о расходах на СО за период.
+   *
    * @param autoEntity Сущность автомобиля.
    * @return Суммарная информация о расходах на СО за период.
    */

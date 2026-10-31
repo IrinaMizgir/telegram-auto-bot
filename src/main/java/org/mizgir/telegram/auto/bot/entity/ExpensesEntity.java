@@ -107,9 +107,7 @@ public class ExpensesEntity {
      * @return Следующий статус расходов.
      */
     public static ExpensesStatus getNextStatus(ExpensesStatus status) {
-      int currentIndex = VALUES.indexOf(status);
-
-      return VALUES.get(currentIndex + 1);
+      return VALUES.get(VALUES.indexOf(status) + 1);
 
     }
   }

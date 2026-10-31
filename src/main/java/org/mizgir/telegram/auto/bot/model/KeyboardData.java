@@ -6,8 +6,8 @@ import lombok.RequiredArgsConstructor;
 /**
  * Данные клавиатуры.
  *
- * @param data Дополнительные данные.
  * @param keyboardType Тип данных.
+ * @param data Дополнительные данные.
  * @author Ирина Мизгир
  * @date 04.10.2026 19:12
  */

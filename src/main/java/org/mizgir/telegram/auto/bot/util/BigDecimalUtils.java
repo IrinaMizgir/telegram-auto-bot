@@ -2,12 +2,15 @@ package org.mizgir.telegram.auto.bot.util;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import lombok.AccessLevel;
+import lombok.NoArgsConstructor;
 
 /**
  * Utility class для работы с {@link java.math.BigDecimal}.
  * @author Ирина Мизгир
  * @date 27.10.2026 20:55
  */
+@NoArgsConstructor(access = AccessLevel.PRIVATE)
 public final class BigDecimalUtils {
 
   /**
