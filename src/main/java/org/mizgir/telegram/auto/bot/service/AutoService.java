@@ -12,6 +12,7 @@ import org.mizgir.telegram.auto.bot.entity.UserEntity;
 import org.mizgir.telegram.auto.bot.model.EnterResult;
 import org.mizgir.telegram.auto.bot.repository.AutoRepository;
 import org.mizgir.telegram.auto.bot.util.NumberOps;
+import org.mizgir.telegram.auto.bot.util.YearUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -59,7 +60,7 @@ public class AutoService {
    * Ввод информации об автомобиле.
    *
    * @param telegramUserId Идентификатор пользователя.
-   * @param text           Введенные данные об автомобиле в виде текста.
+   * @param text Введенные данные об автомобиле в виде текста.
    * @return Результат.
    */
   public EnterResult enterAutoData(Long telegramUserId, String text) {
@@ -118,7 +119,7 @@ public class AutoService {
         if (yearAsInt < MAX_OLD_YEAR.getValue()) {
           yield EnterInformationResultType.INCORRECT_YEAR_TOO_OLD;
         }
-        if (yearAsInt > Year.now().getValue()) {
+        if (yearAsInt > YearUtils.now().getValue()) {
           yield EnterInformationResultType.INCORRECT_YEAR_FUTURE;
         }
 
@@ -132,7 +133,7 @@ public class AutoService {
         autoEntity.setRun(Long.parseLong(text));
         yield EnterInformationResultType.SUCCESS;
       }
-      default -> throw new RuntimeException("Incorrect auto registration status");
+      default -> throw new IllegalStateException("Incorrect auto registration status");
     };
   }
 

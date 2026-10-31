@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
 
 /**
  * Конфигурация для JPA.
+ *
  * @author Ирина Мизгир
  * @date 11.10.2026 21:55
  */

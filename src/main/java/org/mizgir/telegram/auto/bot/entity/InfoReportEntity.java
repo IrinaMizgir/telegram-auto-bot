@@ -20,6 +20,7 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 /**
  * Сущность отчёта за период.
+ *
  * @author Ирина Мизгир
  * @date 18.10.2026 12:46
  */
@@ -106,9 +107,7 @@ public class InfoReportEntity {
      * @return Следующий статус.
      */
     public static InfoReportStatus getNextStatus(InfoReportStatus status) {
-      int currentIndex = VALUES.indexOf(status);
-
-      return VALUES.get(currentIndex + 1);
+      return VALUES.get(VALUES.indexOf(status) + 1);
 
     }
   }

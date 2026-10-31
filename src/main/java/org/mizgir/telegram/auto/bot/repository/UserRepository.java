@@ -6,6 +6,7 @@ import org.springframework.stereotype.Repository;
 
 /**
  * Репозиторий для работы с данными пользователя.
+ *
  * @author Ирина Мизгир
  * @date 11.10.2026 16:00
  */

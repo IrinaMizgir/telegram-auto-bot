@@ -21,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Сервис для работы с расходами на автомобиль.
+ *
  * @author Ирина Мизгир
  * @date 16.10.2026 21:54
  */
@@ -38,6 +39,7 @@ public class ExpensesService {
 
   /**
    * Создание новой записи расходов.
+   *
    * @param telegramUserId Идентификатор пользователя.
    * @return true - если начат новый процесс расходов.
    */
@@ -87,6 +89,7 @@ public class ExpensesService {
 
   /**
    * Создаёт новую запись о расходах для указанного автомобиля и сохраняет её в репозитории.
+   *
    * @param autoEntity Автомобиль, для которого создаётся запись о расходах.
    */
   private void create(AutoEntity autoEntity) {
@@ -99,7 +102,7 @@ public class ExpensesService {
    * Ввод информации расходов.
    *
    * @param telegramUserId Идентификатор пользователя.
-   * @param text           Введенные данные расходов в виде текста.
+   * @param text Введенные данные расходов в виде текста.
    * @return Результат.
    */
   public EnterResult enterExpensesData(Long telegramUserId, String text) {
@@ -154,12 +157,13 @@ public class ExpensesService {
         expensesEntity.setCost(BigDecimalUtils.valueOf(doubleCost));
         yield EnterExpensesInformationResultType.SUCCESS;
       }
-      default -> throw new RuntimeException("Incorrect auto registration status");
+      default -> throw new IllegalStateException("Incorrect auto registration status");
     };
   }
 
   /**
    * Получение общей суммы за расходы.
+   *
    * @param autoEntity Сущность автомобиля.
    * @return Сумма расхода за расходы.
    */
@@ -173,6 +177,7 @@ public class ExpensesService {
 
   /**
    * Получение суммарной информации о расходах за период.
+   *
    * @param autoEntity Сущность автомобиля.
    * @return Суммарная информация о расходах за период.
    */

@@ -119,9 +119,7 @@ public class AutoEntity {
      * @return Следующий статус регистрации.
      */
     public static RegistrationStatus getNextStatus(RegistrationStatus status) {
-      int currentIndex = VALUES.indexOf(status);
-
-      return VALUES.get(currentIndex + 1);
+      return VALUES.get(VALUES.indexOf(status) + 1);
 
     }
   }

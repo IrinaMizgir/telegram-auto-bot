@@ -6,6 +6,8 @@ import org.mizgir.telegram.auto.bot.model.KeyboardData.KeyboardType;
 /**
  * Информация текущих данных.
  *
+ * @param types Типы кнопок.
+ * @param message Сообщение.
  * @author Ирина Мизгир
  * @date 12.10.2026 21:59
  */

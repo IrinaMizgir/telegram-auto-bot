@@ -12,19 +12,48 @@ import org.springframework.stereotype.Repository;
 
 /**
  * Репозиторий для работы с данными расходов.
+ *
  * @author Ирина Мизгир
  * @date 16.10.2026 21:45
  */
 @Repository
 public interface ExpensesRepository extends JpaRepository<ExpensesEntity, Integer> {
 
+  /**
+   * Получит расход по идентификатору автомобиля и статусу.
+   *
+   * @param autoId Идентификатор автомобиля.
+   * @param status Статус.
+   * @return Расход.
+   */
   ExpensesEntity getByAutoIdAndStatusNot(Integer autoId, ExpensesStatus status);
 
+  /**
+   * Найдёт расход по идентификатору автомобиля и статусу.
+   *
+   * @param autoId Идентификатор автомобиля.
+   * @param status Статус.
+   * @return Опциональный расход.
+   */
   Optional<ExpensesEntity> findByAutoIdAndStatusNot(Integer autoId, ExpensesStatus status);
 
+  /**
+   * Посчитает сумму прочих расходов по автомобилю.
+   *
+   * @param auto Автомобиль.
+   * @return Большое десятичное число.
+   */
   @Query("select sum (expenses.cost) from ExpensesEntity expenses where expenses.auto = :auto")
   BigDecimal sumCostsByAuto(AutoEntity auto);
 
+  /**
+   * Посчитает сумму по автомобилю за период.
+   *
+   * @param auto Автомобиль.
+   * @param startDate Начало периода.
+   * @param endDate Конец периода.
+   * @return Большое десятичное число.
+   */
   @Query("""
       select sum (expenses.cost) from ExpensesEntity expenses \
       where expenses.auto = :auto and expenses.creationDate between :startDate and :endDate"""

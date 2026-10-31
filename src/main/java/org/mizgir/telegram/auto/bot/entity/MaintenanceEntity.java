@@ -21,6 +21,7 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 /**
  * Сущность для данных сервисного обслуживания.
+ *
  * @author Ирина Мизгир
  * @date 12.10.2026 21:27
  */
@@ -124,9 +125,7 @@ public class MaintenanceEntity {
      * @return Следующий статус СО.
      */
     public static MaintenanceStatus getNextStatus(MaintenanceStatus status) {
-      int currentIndex = VALUES.indexOf(status);
-
-      return VALUES.get(currentIndex + 1);
+      return VALUES.get(VALUES.indexOf(status) + 1);
 
     }
 

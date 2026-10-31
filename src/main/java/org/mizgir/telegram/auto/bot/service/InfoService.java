@@ -23,11 +23,14 @@ import org.mizgir.telegram.auto.bot.model.EnterResult;
 import org.mizgir.telegram.auto.bot.model.KeyboardData.KeyboardType;
 import org.mizgir.telegram.auto.bot.model.RefuelSummary;
 import org.mizgir.telegram.auto.bot.repository.InfoReportRepository;
+import org.mizgir.telegram.auto.bot.util.LocalDateUtils;
+import org.mizgir.telegram.auto.bot.util.YearUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Сервис для работы со статистикой.
+ *
  * @author Ирина Мизгир
  * @date 17.10.2026 14:38
  */
@@ -52,29 +55,28 @@ public class InfoService {
 
   /**
    * Создание новой записи отчёта.
+   *
    * @param telegramUserId Идентификатор пользователя.
-   * @return true - если начат отчёт.
    */
   @Transactional
-  public boolean createByPeriod(Long telegramUserId) {
-    return createByActionType(telegramUserId, ActionType.ENTER_INFO_BY_PERIOD);
+  public void createByPeriod(Long telegramUserId) {
+    createByActionType(telegramUserId, ActionType.ENTER_INFO_BY_PERIOD);
   }
 
   /**
    * Создание новой записи отчёта.
+   *
    * @param telegramUserId Идентификатор пользователя.
    * @param actionType Тип действия.
-   * @return true - если начат отчёт.
    */
-  private boolean createByActionType(Long telegramUserId, ActionType actionType) {
+  private void createByActionType(Long telegramUserId, ActionType actionType) {
     Optional<AutoEntity> autoEntity = autoService.findByUserIdAndFinished(telegramUserId);
     if (autoEntity.isEmpty()) {
-      return false;
+      return;
     }
     userActionStateService.changeActionTypeById(telegramUserId, actionType);
     autoEntity.ifPresent(this::upsertInfoReport);
 
-    return true;
   }
 
   /**
@@ -105,6 +107,7 @@ public class InfoService {
 
   /**
    * Создаёт новую запись о заправке для указанного автомобиля и сохраняет её в репозитории.
+   *
    * @param autoEntity Автомобиль, для которого создаётся запись о заправке.
    */
   private void create(AutoEntity autoEntity) {
@@ -116,39 +119,39 @@ public class InfoService {
 
   /**
    * Создание новой записи отчёта за год.
+   *
    * @param telegramUserId Идентификатор пользователя.
-   * @return true - если начат отчёт.
    */
   @Transactional
-  public boolean createByYear(Long telegramUserId) {
-    return createByActionType(telegramUserId, ActionType.ENTER_INFO_BY_YEAR);
+  public void createByYear(Long telegramUserId) {
+    createByActionType(telegramUserId, ActionType.ENTER_INFO_BY_YEAR);
   }
 
   /**
    * Создание новой записи отчёта за месяц.
+   *
    * @param telegramUserId Идентификатор пользователя.
-   * @return true - если начат отчёт.
    */
   @Transactional
-  public boolean createByMonth(Long telegramUserId) {
-    return createByActionType(telegramUserId, ActionType.ENTER_INFO_BY_MONTH);
+  public void createByMonth(Long telegramUserId) {
+    createByActionType(telegramUserId, ActionType.ENTER_INFO_BY_MONTH);
   }
 
   /**
    * Создание новой записи отчёта за день.
+   *
    * @param telegramUserId Идентификатор пользователя.
-   * @return true - если начат отчёт.
    */
   @Transactional
-  public boolean createByDay(Long telegramUserId) {
-    return createByActionType(telegramUserId, ActionType.ENTER_INFO_BY_DAY);
+  public void createByDay(Long telegramUserId) {
+    createByActionType(telegramUserId, ActionType.ENTER_INFO_BY_DAY);
   }
 
   /**
    * Ввод информации отчёта за год.
    *
    * @param telegramUserId Идентификатор пользователя.
-   * @param text           Введенные данных отчёта за год в виде текста.
+   * @param text Введенные данных отчёта за год в виде текста.
    * @return Результат.
    */
   public EnterResult enterInfoReportDataByYear(Long telegramUserId, String text) {
@@ -187,7 +190,7 @@ public class InfoService {
    * Ввод информации отчёта за месяц.
    *
    * @param telegramUserId Идентификатор пользователя.
-   * @param text           Введенные данных отчёта за месяц в виде текста.
+   * @param text Введенные данных отчёта за месяц в виде текста.
    * @return Результат.
    */
   public EnterResult enterInfoReportDataByMonth(Long telegramUserId, String text) {
@@ -198,7 +201,7 @@ public class InfoService {
     if (NumberUtils.isDigits(text)) {
       int monthAsInt = Integer.parseInt(text);
       if (monthAsInt >= 1 && monthAsInt <= 12) {
-        YearMonth yearMonth = YearMonth.of(Year.now().getValue(), Month.of(monthAsInt));
+        YearMonth yearMonth = YearMonth.of(YearUtils.now().getValue(), Month.of(monthAsInt));
         LocalDate periodStart = yearMonth.atDay(1);
         LocalDate periodEnd = yearMonth.atEndOfMonth();
         infoReportEntity.setAuto(autoEntity);
@@ -224,7 +227,7 @@ public class InfoService {
    * Ввод информации отчёта за день.
    *
    * @param telegramUserId Идентификатор пользователя.
-   * @param text           Введенные данных отчёта за день в виде текста.
+   * @param text Введенные данных отчёта за день в виде текста.
    * @return Результат.
    */
   public EnterResult enterInfoReportDataByDay(Long telegramUserId, String text) {
@@ -256,7 +259,7 @@ public class InfoService {
    * Ввод информации отчёта за период.
    *
    * @param telegramUserId Идентификатор пользователя.
-   * @param text           Введенные данных отчёта в виде текста.
+   * @param text Введенные данных отчёта в виде текста.
    * @return Результат.
    */
   public EnterResult enterInfoReportDataByPeriod(Long telegramUserId, String text) {
@@ -287,7 +290,7 @@ public class InfoService {
         if (localDate == null) {
           yield EnterInfoReportInformationResultType.INCORRECT_NOT_START_DATE;
         }
-        if (localDate.isAfter(LocalDate.now())) {
+        if (localDate.isAfter(LocalDateUtils.now())) {
           yield EnterInfoReportInformationResultType.INCORRECT_FUTURE_START_DATE;
         }
         if (localDate.isBefore(autoEntity.getCreationDate())) {
@@ -301,7 +304,7 @@ public class InfoService {
         if (localDate == null) {
           yield EnterInfoReportInformationResultType.INCORRECT_NOT_END_DATE;
         }
-        if (localDate.isAfter(LocalDate.now())) {
+        if (localDate.isAfter(LocalDateUtils.now())) {
           yield EnterInfoReportInformationResultType.INCORRECT_FUTURE_END_DATE;
         }
         if (localDate.isBefore(autoEntity.getCreationDate())) {
@@ -314,7 +317,7 @@ public class InfoService {
         infoReportEntity.setPeriodEndDate(localDate);
         yield EnterInfoReportInformationResultType.SUCCESS;
       }
-      default -> throw new RuntimeException("Incorrect info report");
+      default -> throw new IllegalStateException("Incorrect info report");
     };
   }
 
@@ -369,6 +372,7 @@ public class InfoService {
 
   /**
    * Парсит строку с датой в формате ("dd.MM.yyyy").
+   *
    * @param text Введенные данные в виде текста.
    * @return Дата.
    */
@@ -384,6 +388,7 @@ public class InfoService {
 
   /**
    * Получение данных.
+   *
    * @param userId Идентификатор пользователя.
    * @return Данные.
    */
@@ -396,6 +401,7 @@ public class InfoService {
 
   /**
    * Получение данных статистики.
+   *
    * @param autoEntity Сущность автомобиля.
    * @return Данные.
    */

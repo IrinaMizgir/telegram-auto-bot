@@ -41,6 +41,7 @@ public class RefuelService {
 
   /**
    * Создание новой записи заправки.
+   *
    * @param telegramUserId Идентификатор пользователя.
    * @return true - если начат новый процесс заправки.
    */
@@ -90,6 +91,7 @@ public class RefuelService {
 
   /**
    * Создаёт новую запись о заправке для указанного автомобиля и сохраняет её в репозитории.
+   *
    * @param autoEntity Автомобиль, для которого создаётся запись о заправке.
    */
   private void create(AutoEntity autoEntity) {
@@ -102,7 +104,7 @@ public class RefuelService {
    * Ввод информации заправки.
    *
    * @param telegramUserId Идентификатор пользователя.
-   * @param text           Введенные данные заправки в виде текста.
+   * @param text Введенные данные заправки в виде текста.
    * @return Результат.
    */
   public EnterResult enterRefuelData(Long telegramUserId, String text) {
@@ -198,12 +200,13 @@ public class RefuelService {
         }
         yield EnterRefuelInformationResultType.SUCCESS;
       }
-      default -> throw new RuntimeException("Incorrect auto registration status");
+      default -> throw new IllegalStateException("Incorrect auto registration status");
     };
   }
 
   /**
    * Получение суммарной информации о расходах на топлива.
+   *
    * @param autoEntity Сущность автомобиля.
    * @return Суммарная информация о расходах на топлива.
    */
@@ -213,6 +216,7 @@ public class RefuelService {
 
   /**
    * Получение суммарной информации о расходах на топлива за период.
+   *
    * @param autoEntity Сущность автомобиля.
    * @return Суммарная информация о расходах на топлива за период.
    */

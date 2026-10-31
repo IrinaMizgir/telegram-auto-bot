@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Strings;
+import org.jspecify.annotations.NonNull;
 import org.mizgir.telegram.auto.bot.configuration.property.TelegramBotConfigProperties;
 import org.mizgir.telegram.auto.bot.entity.UserActionStateEntity.ActionType;
 import org.mizgir.telegram.auto.bot.model.DataResult;
@@ -69,108 +70,179 @@ public class TelegramAutoBot extends DefaultLongPollingUpdateConsumer implements
       String text = update.getMessage().getText();
       if (StringUtils.isNotBlank(text)) {
         if (Command.isCommand(text)) {
-          Command command = Command.fromCommandName(StringUtils.substringAfter(text, Command.COMMAND_PREFIX));
-          switch (command) {
-            case START -> onStart(update);
-            case REFUEL -> onRefuel(update);
-            case SERVICE -> onMaintenance(update);
-            case COSTS -> onCosts(update);
-            case INFO -> onInfo(update);
-          }
+          onCommand(update, text);
         } else {
-          Long id = update.getMessage().getFrom().getId();
-          ActionType type = userActionStateService.findActionTypeById(id);
-          switch (type) {
-            case REGISTER_AUTO -> onRegisterAutoMessage(id, text, update);
-            case ENTER_REFUEL -> onEnterRefuelAutoMassage(id, text, update);
-            case ENTER_MAINTENANCE -> onEnterMaintenanceAutoMassage(id, text, update);
-            case ENTER_EXPENSES -> onEnterExpensesAutoMassage(id, text, update);
-            case ENTER_INFO_BY_PERIOD -> onEnterInfoByPeriodAutoMassage(id, text, update);
-            case ENTER_INFO_BY_YEAR -> onEnterInfoByYearAutoMassage(id, text, update);
-            case ENTER_INFO_BY_MONTH -> onEnterInfoByMonthAutoMassage(id, text, update);
-            case ENTER_INFO_BY_DAY -> onEnterInfoByDayAutoMassage(id, text, update);
-          }
+          onEnterData(update, text);
         }
-
       }
     } else if (update.hasCallbackQuery()) {
-      CallbackQuery callbackQuery = update.getCallbackQuery();
-      String data = callbackQuery.getData();
-      if (StringUtils.isNotEmpty(data)) {
-        KeyboardData keyboardData = objectMapper.readValue(data, KeyboardData.class);
-        if (keyboardData != null) {
+      onCallback(update);
+    }
+  }
 
-          Long userId = callbackQuery.getFrom().getId();
-          if (KeyboardType.REGISTER.equals(keyboardData.keyboardType())) {
-            String userName = callbackQuery.getFrom().getUserName();
-            autoService.create(userId, userName);
-            SendMessage sendMessage = SendMessage.builder()
-                .chatId(callbackQuery.getMessage().getChatId())
-                .text("""
-                    \uD83D\uDE97 Добавим автомобиль
-                    
-                    Введите марку и модель одним сообщением.
-                    Например: Toyota Camry, Volkswagen Passat, Lada Vesta.
-                    
-                    \uD83D\uDC47 Напишите марку и модель:""")
-                .build();
-            sendTelegramMessage(sendMessage);
-          } else if (KeyboardType.INFO_BY_PERIOD.equals(keyboardData.keyboardType())) {
-            infoService.createByPeriod(userId);
-            SendMessage sendMessage = SendMessage.builder()
-                .chatId(callbackQuery.getMessage().getChatId())
-                .text("""
-                    \uD83D\uDCC5 С какого дня показать статистику?
-                    
-                    Введите дату начала периода в формате ДД.ММ.ГГГГ.
-                    Например: 01.10.2026.
-                    
-                    \uD83D\uDC47Ждём дату:""")
-                .build();
-            sendTelegramMessage(sendMessage);
-          } else if (KeyboardType.INFO_BY_YEAR.equals(keyboardData.keyboardType())) {
-            infoService.createByYear(userId);
-            SendMessage sendMessage = SendMessage.builder()
-                .chatId(callbackQuery.getMessage().getChatId())
-                .text("""
-                    \uD83D\uDCC5 За какой год показать статистику?
-                    
-                    Введите год в формате ГГГГ.
-                    Например: 2026.
-                    
-                    \uD83D\uDC47Ждём год:""")
-                .build();
-            sendTelegramMessage(sendMessage);
-          } else if (KeyboardType.INFO_BY_MONTH.equals(keyboardData.keyboardType())) {
-            infoService.createByMonth(userId);
-            SendMessage sendMessage = SendMessage.builder()
-                .chatId(callbackQuery.getMessage().getChatId())
-                .text("""
-                    За какой месяц показать статистику?
-                    
-                    Введите месяц числом от 1 до 12.
-                    Например: 6 — это июнь.
-                    
-                    \uD83D\uDC47Ждём месяц:""")
-                .build();
-            sendTelegramMessage(sendMessage);
-          } else if (KeyboardType.INFO_BY_DAY.equals(keyboardData.keyboardType())) {
-            infoService.createByDay(userId);
-            SendMessage sendMessage = SendMessage.builder()
-                .chatId(callbackQuery.getMessage().getChatId())
-                .text("""
-                    \uD83D\uDCC5 За какой день показать статистику?
-                    
-                    Введите дату в формате ДД.ММ.ГГГГ.
-                    Например: 01.10.2026.
-                    
-                    \uD83D\uDC47Ждём дату:""")
-                .build();
-            sendTelegramMessage(sendMessage);
-          }
+  /**
+   * Обработка команд.
+   * @param update Обновление от телеграм бота.
+   * @param text Сообщения.
+   */
+  private void onCommand(Update update, String text) {
+    Command command = Command.fromCommandName(StringUtils.substringAfter(text, Command.COMMAND_PREFIX));
+    switch (command) {
+      case START -> onStart(update);
+      case REFUEL -> onRefuel(update);
+      case SERVICE -> onMaintenance(update);
+      case COSTS -> onCosts(update);
+      case INFO -> onInfo(update);
+    }
+  }
+
+  /**
+   * Обработчик ввода данных.
+   * @param update Обновление от телеграм бота.
+   * @param text Сообщения.
+   */
+  private void onEnterData(Update update, String text) {
+    Long id = getUserId(update);
+    ActionType type = userActionStateService.findActionTypeById(id);
+    switch (type) {
+      case REGISTER_AUTO -> onRegisterAutoMessage(id, text, update);
+      case ENTER_REFUEL -> onEnterRefuelAutoMassage(id, text, update);
+      case ENTER_MAINTENANCE -> onEnterMaintenanceAutoMassage(id, text, update);
+      case ENTER_EXPENSES -> onEnterExpensesAutoMassage(id, text, update);
+      case ENTER_INFO_BY_PERIOD -> onEnterInfoByPeriodAutoMassage(id, text, update);
+      case ENTER_INFO_BY_YEAR -> onEnterInfoByYearAutoMassage(id, text, update);
+      case ENTER_INFO_BY_MONTH -> onEnterInfoByMonthAutoMassage(id, text, update);
+      case ENTER_INFO_BY_DAY -> onEnterInfoByDayAutoMassage(id, text, update);
+      case DEFAULT -> throw new IllegalStateException("Illegal action type");
+    }
+  }
+
+  /**
+   * Обработчик для нажатия кнопок.
+   * @param update Обновление от телеграм бота.
+   */
+  private void onCallback(Update update) {
+    CallbackQuery callbackQuery = update.getCallbackQuery();
+    String data = callbackQuery.getData();
+    if (StringUtils.isNotEmpty(data)) {
+      KeyboardData keyboardData = objectMapper.readValue(data, KeyboardData.class);
+      if (keyboardData != null) {
+        Long userId = callbackQuery.getFrom().getId();
+        switch (keyboardData.keyboardType()) {
+          case REGISTER -> onRegister(userId, callbackQuery);
+          case INFO_BY_PERIOD -> onInfoByPeriod(userId, callbackQuery);
+          case INFO_BY_YEAR -> onInfoByYear(userId, callbackQuery);
+          case INFO_BY_MONTH -> onInfoByMonth(userId, callbackQuery);
+          case INFO_BY_DAY -> onInfoByDay(userId, callbackQuery);
         }
       }
     }
+  }
+
+  /**
+   * Обработка кнопки регистрации.
+   *
+   * @param userId Идентификатор пользователя.
+   * @param callbackQuery Обратный вызов после нажатия кнопки.
+   */
+  private void onRegister(Long userId, CallbackQuery callbackQuery) {
+    String userName = callbackQuery.getFrom().getUserName();
+    autoService.create(userId, userName);
+    SendMessage sendMessage = SendMessage.builder()
+        .chatId(callbackQuery.getMessage().getChatId())
+        .text("""
+            \uD83D\uDE97 Добавим автомобиль
+            
+            Введите марку и модель одним сообщением.
+            Например: Toyota Camry, Ford GT, Lada Vesta.
+            
+            \uD83D\uDC47 Напишите марку и модель:""")
+        .build();
+    sendTelegramMessage(sendMessage);
+  }
+
+  /**
+   * Обработка кнопки статистика за период.
+   *
+   * @param userId Идентификатор пользователя.
+   * @param callbackQuery Обратный вызов после нажатия кнопки.
+   */
+  private void onInfoByPeriod(Long userId, CallbackQuery callbackQuery) {
+    infoService.createByPeriod(userId);
+    SendMessage sendMessage = SendMessage.builder()
+        .chatId(callbackQuery.getMessage().getChatId())
+        .text("""
+            \uD83D\uDCC5 С какого дня показать статистику?
+            
+            Введите дату начала периода в формате ДД.ММ.ГГГГ.
+            Например: 01.10.2026.
+            
+            \uD83D\uDC47Ждём дату:""")
+        .build();
+    sendTelegramMessage(sendMessage);
+  }
+
+  /**
+   * Обработка кнопки статистика за год.
+   *
+   * @param userId Идентификатор пользователя.
+   * @param callbackQuery Обратный вызов после нажатия кнопки.
+   */
+  private void onInfoByYear(Long userId, CallbackQuery callbackQuery) {
+    infoService.createByYear(userId);
+    SendMessage sendMessage = SendMessage.builder()
+        .chatId(callbackQuery.getMessage().getChatId())
+        .text("""
+            \uD83D\uDCC5 За какой год показать статистику?
+            
+            Введите год в формате ГГГГ.
+            Например: 2026.
+            
+            \uD83D\uDC47Ждём год:""")
+        .build();
+    sendTelegramMessage(sendMessage);
+  }
+
+  /**
+   * Обработка кнопки статистика за месяц.
+   *
+   * @param userId Идентификатор пользователя.
+   * @param callbackQuery Обратный вызов после нажатия кнопки.
+   */
+  private void onInfoByMonth(Long userId, CallbackQuery callbackQuery) {
+    infoService.createByMonth(userId);
+    SendMessage sendMessage = SendMessage.builder()
+        .chatId(callbackQuery.getMessage().getChatId())
+        .text("""
+            За какой месяц показать статистику?
+            
+            Введите месяц числом от 1 до 12.
+            Например: 6 — это июнь.
+            
+            \uD83D\uDC47Ждём месяц:""")
+        .build();
+    sendTelegramMessage(sendMessage);
+  }
+
+  /**
+   * Обработка кнопки статистика за день.
+   *
+   * @param userId Идентификатор пользователя.
+   * @param callbackQuery Обратный вызов после нажатия кнопки.
+   */
+  private void onInfoByDay(Long userId, CallbackQuery callbackQuery) {
+    infoService.createByDay(userId);
+    SendMessage sendMessage = SendMessage.builder()
+        .chatId(callbackQuery.getMessage().getChatId())
+        .text("""
+            \uD83D\uDCC5 За какой день показать статистику?
+            
+            Введите дату в формате ДД.ММ.ГГГГ.
+            Например: 01.10.2026.
+            
+            \uD83D\uDC47Ждём дату:""")
+        .build();
+    sendTelegramMessage(sendMessage);
   }
 
 
@@ -179,17 +251,10 @@ public class TelegramAutoBot extends DefaultLongPollingUpdateConsumer implements
    *
    * @param telegramUserId Идентификатор пользователя.
    * @param text Сообщение пользователя.
-   * @param update Обновление данных регистрации.
+   * @param update Обновление от телеграм бота.
    */
   private void onRegisterAutoMessage(Long telegramUserId, String text, Update update) {
-    EnterResult result = autoService.enterAutoData(telegramUserId, text);
-
-    SendMessage sendMessage = SendMessage.builder()
-        .chatId(update.getMessage().getChatId())
-        .text(result.message())
-        .build();
-
-    sendTelegramMessage(sendMessage);
+    sendEnterResultMessage(update, autoService.enterAutoData(telegramUserId, text));
   }
 
   /**
@@ -197,15 +262,10 @@ public class TelegramAutoBot extends DefaultLongPollingUpdateConsumer implements
    *
    * @param telegramUserId Идентификатор пользователя.
    * @param text Сообщение пользователя.
-   * @param update Обновление данных заправки.
+   * @param update Обновление от телеграм бота.
    */
   private void onEnterRefuelAutoMassage(Long telegramUserId, String text, Update update) {
-    EnterResult result = refuelService.enterRefuelData(telegramUserId, text);
-    SendMessage sendMessage = SendMessage.builder()
-        .chatId(update.getMessage().getChatId())
-        .text(result.message())
-        .build();
-    sendTelegramMessage(sendMessage);
+    sendEnterResultMessage(update, refuelService.enterRefuelData(telegramUserId, text));
   }
 
   /**
@@ -213,15 +273,10 @@ public class TelegramAutoBot extends DefaultLongPollingUpdateConsumer implements
    *
    * @param telegramUserId Идентификатор пользователя.
    * @param text Сообщение пользователя.
-   * @param update Обновление данных СО.
+   * @param update Обновление от телеграм бота.
    */
   private void onEnterMaintenanceAutoMassage(Long telegramUserId, String text, Update update) {
-    EnterResult result = maintenanceService.enterMaintenanceData(telegramUserId, text);
-    SendMessage sendMessage = SendMessage.builder()
-        .chatId(update.getMessage().getChatId())
-        .text(result.message())
-        .build();
-    sendTelegramMessage(sendMessage);
+    sendEnterResultMessage(update, maintenanceService.enterMaintenanceData(telegramUserId, text));
   }
 
   /**
@@ -229,15 +284,10 @@ public class TelegramAutoBot extends DefaultLongPollingUpdateConsumer implements
    *
    * @param telegramUserId Идентификатор пользователя.
    * @param text Сообщение пользователя.
-   * @param update Обновление данных расхода.
+   * @param update Обновление от телеграм бота.
    */
   private void onEnterExpensesAutoMassage(Long telegramUserId, String text, Update update) {
-    EnterResult result = expensesService.enterExpensesData(telegramUserId, text);
-    SendMessage sendMessage = SendMessage.builder()
-        .chatId(update.getMessage().getChatId())
-        .text(result.message())
-        .build();
-    sendTelegramMessage(sendMessage);
+    sendEnterResultMessage(update, expensesService.enterExpensesData(telegramUserId, text));
   }
 
   /**
@@ -245,16 +295,10 @@ public class TelegramAutoBot extends DefaultLongPollingUpdateConsumer implements
    *
    * @param id Идентификатор пользователя.
    * @param text Сообщение пользователя.
-   * @param update Обновление данных статистики за период.
+   * @param update Обновление от телеграм бота.
    */
   private void onEnterInfoByPeriodAutoMassage(Long id, String text, Update update) {
-    EnterResult result = infoService.enterInfoReportDataByPeriod(id, text);
-    SendMessage sendMessage = SendMessage.builder()
-        .chatId(update.getMessage().getChatId())
-        .text(result.message())
-        .replyMarkup(createKeyBoard(result.types()))
-        .build();
-    sendTelegramMessage(sendMessage);
+    sendEnterResultMessage(update, infoService.enterInfoReportDataByPeriod(id, text));
   }
 
   /**
@@ -262,16 +306,10 @@ public class TelegramAutoBot extends DefaultLongPollingUpdateConsumer implements
    *
    * @param id Идентификатор пользователя.
    * @param text Сообщение пользователя.
-   * @param update Обновление данных статистики за год.
+   * @param update Обновление от телеграм бота.
    */
   private void onEnterInfoByYearAutoMassage(Long id, String text, Update update) {
-    EnterResult result = infoService.enterInfoReportDataByYear(id, text);
-    SendMessage sendMessage = SendMessage.builder()
-        .chatId(update.getMessage().getChatId())
-        .text(result.message())
-        .replyMarkup(createKeyBoard(result.types()))
-        .build();
-    sendTelegramMessage(sendMessage);
+    sendEnterResultMessage(update, infoService.enterInfoReportDataByYear(id, text));
   }
 
   /**
@@ -279,16 +317,10 @@ public class TelegramAutoBot extends DefaultLongPollingUpdateConsumer implements
    *
    * @param id Идентификатор пользователя.
    * @param text Сообщение пользователя.
-   * @param update Обновление данных статистики за месяц.
+   * @param update Обновление от телеграм бота.
    */
   private void onEnterInfoByMonthAutoMassage(Long id, String text, Update update) {
-    EnterResult result = infoService.enterInfoReportDataByMonth(id, text);
-    SendMessage sendMessage = SendMessage.builder()
-        .chatId(update.getMessage().getChatId())
-        .text(result.message())
-        .replyMarkup(createKeyBoard(result.types()))
-        .build();
-    sendTelegramMessage(sendMessage);
+    sendEnterResultMessage(update, infoService.enterInfoReportDataByMonth(id, text));
   }
 
   /**
@@ -296,10 +328,19 @@ public class TelegramAutoBot extends DefaultLongPollingUpdateConsumer implements
    *
    * @param id Идентификатор пользователя.
    * @param text Сообщение пользователя.
-   * @param update Обновление данных статистики за месяц.
+   * @param update Обновление от телеграм бота.
    */
   private void onEnterInfoByDayAutoMassage(Long id, String text, Update update) {
-    EnterResult result = infoService.enterInfoReportDataByDay(id, text);
+    sendEnterResultMessage(update, infoService.enterInfoReportDataByDay(id, text));
+  }
+
+  /**
+   * Отправит сообщение с результатом ввода данных.
+   *
+   * @param update Обновление от телеграм бота.
+   * @param result Результат ввода данных.
+   */
+  private void sendEnterResultMessage(Update update, EnterResult result) {
     SendMessage sendMessage = SendMessage.builder()
         .chatId(update.getMessage().getChatId())
         .text(result.message())
@@ -311,30 +352,29 @@ public class TelegramAutoBot extends DefaultLongPollingUpdateConsumer implements
   /**
    * Обработчик для запуска бота.
    *
-   * @param update Обновление чатов бота.
+   * @param update Обновление от телеграм бота.
    */
   private void onStart(Update update) {
     SendMessage sendMessage = SendMessage.builder()
         .chatId(update.getMessage().getChatId())
-        .text(
-            """
-                Привет! Я – ваш цифровой паспорт автомобиля. Помогу держать всю важную информацию о машине в одном месте и вовремя напомню о главном. Что я умею:
-                📂 Хранить данные авто.
-                📅 Напоминать об окончании срока страховки и техосмотра.
-                🛠 Вести электронную сервисную книжку (историю ТО и замен).
-                💰 Считать расходы на бензин и ремонт.
-                Чтобы начать работу и создать профиль автомобиля, нажмите кнопку ниже:""")
-
-        .replyMarkup(createKeyBoard(KeyboardType.REGISTER))
+        .text("""
+            Привет! Я – ваш цифровой паспорт автомобиля. Помогу держать всю важную информацию о машине в одном месте и вовремя напомню о главном. Что я умею:
+            📂 Хранить данные авто.
+            📅 Напоминать об окончании срока страховки и техосмотра.
+            🛠 Вести электронную сервисную книжку (историю ТО и замен).
+            💰 Считать расходы на бензин и ремонт.
+            Чтобы начать работу и создать профиль автомобиля, нажмите кнопку ниже:""")
+        .replyMarkup(createRegisterKeyBoard())
         .build();
 
     sendTelegramMessage(sendMessage);
 
   }
 
-  private InlineKeyboardMarkup createKeyBoard(KeyboardType keyboardType) {
+  private InlineKeyboardMarkup createRegisterKeyBoard() {
     return InlineKeyboardMarkup.builder()
-        .keyboardRow(new InlineKeyboardRow(createKeyboardButton(keyboardType))).build();
+        .keyboardRow(new InlineKeyboardRow(createKeyboardButton(KeyboardType.REGISTER)))
+        .build();
   }
 
   private InlineKeyboardButton createKeyboardButton(KeyboardType keyboardType) {
@@ -375,36 +415,43 @@ public class TelegramAutoBot extends DefaultLongPollingUpdateConsumer implements
   /**
    * Обработчик для внесения данных заправки.
    *
-   * @param update Обновление чатов бота.
+   * @param update Обновление от телеграм бота.
    */
   private void onRefuel(Update update) {
+    sendDataResultMessage(update, refuelService.create(getUserId(update)));
+  }
 
-    sendDataResultMessage(update, refuelService.create(update.getMessage().getFrom().getId()));
-
+  /**
+   * Получает идентификатор пользователя.
+   * @param update Обновление от телеграм бота.
+   * @return Идентификатор пользователя
+   */
+  private @NonNull Long getUserId(Update update) {
+    return update.getMessage().getFrom().getId();
   }
 
   /**
    * Обработчик для внесения данных CO.
    *
-   * @param update Обновление чатов бота.
+   * @param update Обновление от телеграм бота.
    */
   private void onMaintenance(Update update) {
-    sendDataResultMessage(update, maintenanceService.create(update.getMessage().getFrom().getId()));
+    sendDataResultMessage(update, maintenanceService.create(getUserId(update)));
   }
 
   /**
    * Обработчик для внесения данных о расходах.
    *
-   * @param update Обновление чатов бота.
+   * @param update Обновление от телеграм бота.
    */
   private void onCosts(Update update) {
-    sendDataResultMessage(update, expensesService.create(update.getMessage().getFrom().getId()));
+    sendDataResultMessage(update, expensesService.create(getUserId(update)));
   }
 
   /**
    * Отправит сообщение по данным.
    *
-   * @param update Обновление чат бота.
+   * @param update Обновление от телеграм бота.
    * @param dataResult объект результата данных.
    */
   private void sendDataResultMessage(Update update, DataResult dataResult) {
@@ -419,10 +466,10 @@ public class TelegramAutoBot extends DefaultLongPollingUpdateConsumer implements
   /**
    * Обработчик для внесения данных статистики.
    *
-   * @param update Обновление чатов бота.
+   * @param update Обновление от телеграм бота.
    */
   private void onInfo(Update update) {
-    sendDataResultMessage(update, infoService.getDataResult(update.getMessage().getFrom().getId()));
+    sendDataResultMessage(update, infoService.getDataResult(getUserId(update)));
   }
 
 
@@ -504,7 +551,7 @@ public class TelegramAutoBot extends DefaultLongPollingUpdateConsumer implements
    */
   private static class UnknownCommandException extends RuntimeException {
 
-    public UnknownCommandException(String message) {
+    private UnknownCommandException(String message) {
       super(message);
     }
   }
