@@ -1,14 +1,16 @@
 spring:
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.xml
+  jpa:
+    hibernate:
+      ddl-auto: validate
   application:
     name: telegram-auto-bot
   datasource:
-    url: jdbc:h2:mem:testdb
-    driver-class-name: org.h2.Driver
-    username: sa
-    password:
-  h2:
-    console:
-      enabled: true
+    url: jdbc:postgresql://localhost:5432/postgres_db
+    username: ${POSTGRES_USER}
+    password: ${POSTGRES_PASSWORD}
+
 
 app:
   telegram:

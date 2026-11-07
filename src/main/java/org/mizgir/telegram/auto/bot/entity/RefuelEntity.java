@@ -4,6 +4,8 @@ import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -63,7 +65,7 @@ public class RefuelEntity {
    * Количество литров топлива.
    */
   @Column(name = "AMOUNT")
-  private Double amount;
+  private BigDecimal amount;
 
   /**
    * Дистанция пройденная после последней заправки.
@@ -74,7 +76,7 @@ public class RefuelEntity {
   /**
    * Пробег автомобиля.
    */
-  @Column
+  @Column(name = "RUN")
   private Long run;
 
   /**
@@ -92,7 +94,8 @@ public class RefuelEntity {
   /**
    * Статус заправки.
    */
-  @Column
+  @Enumerated(EnumType.STRING)
+  @Column(name = "STATUS")
   private RefuelStatus status = RefuelStatus.ENTER_RUN;
 
   /**

@@ -4,6 +4,8 @@ import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -25,6 +27,7 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
  * @author Ирина Мизгир
  * @date 07.10.2026 21:45
  */
+
 @Data
 @Entity
 @Table(name = "AUTOS")
@@ -55,7 +58,7 @@ public class AutoEntity {
   /**
    * Модель и марка автомобиля.
    */
-  @Column
+  @Column(name = "NAME")
   private String name;
 
   /**
@@ -67,13 +70,14 @@ public class AutoEntity {
   /**
    * Пробег автомобиля.
    */
-  @Column
+  @Column(name = "RUN")
   private Long run;
 
   /**
    * Статус регистрации.
    */
-  @Column
+  @Enumerated(EnumType.STRING)
+  @Column(name = "STATUS")
   private RegistrationStatus status = RegistrationStatus.ENTER_NAME;
 
   /**

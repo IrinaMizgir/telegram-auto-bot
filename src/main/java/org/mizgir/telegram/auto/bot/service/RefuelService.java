@@ -167,11 +167,12 @@ public class RefuelService {
         if (NumberOps.isNotParsable(normalizedText)) {
           yield EnterRefuelInformationResultType.INCORRECT_AMOUNT_NOT_NUMBER;
         }
-        double amount = Double.parseDouble(normalizedText);
-        if (amount <= 0) {
+        double doubleAmount = Double.parseDouble(normalizedText);
+        if (doubleAmount <= 0) {
           yield EnterRefuelInformationResultType.INCORRECT_AMOUNT_NEGATIVE;
         }
-        if (amount > 0) {
+        if (doubleAmount > 0) {
+          BigDecimal amount = BigDecimalUtils.valueOf(doubleAmount);
           refuelEntity.setAmount(amount);
         }
         yield EnterRefuelInformationResultType.SUCCESS_ENTER_AMOUNT;
@@ -191,7 +192,7 @@ public class RefuelService {
           BigDecimal price = BigDecimalUtils.valueOf(doublePrice);
           refuelEntity.setPrice(price);
 
-          BigDecimal costs = BigDecimalUtils.valueOf(refuelEntity.getAmount())
+          BigDecimal costs = refuelEntity.getAmount()
               .multiply(price)
               .setScale(2, RoundingMode.HALF_UP);
 
