@@ -4,6 +4,8 @@ import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -32,7 +34,7 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 public class ExpensesEntity {
 
   /**
-   * Идентификатор заправки.
+   * Идентификатор расходов.
    */
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -74,6 +76,8 @@ public class ExpensesEntity {
   /**
    * Статус расхода.
    */
+  @Enumerated(EnumType.STRING)
+  @Column(name = "STATUS")
   private ExpensesStatus status = ExpensesStatus.ENTER_DESCRIPTION;
 
   /**

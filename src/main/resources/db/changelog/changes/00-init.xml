@@ -1,0 +1,216 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+  xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns:ext="http://www.liquibase.org/xml/ns/dbchangelog-ext"
+  xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+  <changeSet id="1" author="IrinaMizgir">
+    <ext:createPostgresEnumType name="AUTO_REGISTRATION_STATUS" values="ENTER_NAME, ENTER_YEAR, ENTER_RUN, FINISHED"/>
+    <ext:createPostgresEnumType name="EXPENSES_STATUS" values="ENTER_DESCRIPTION, ENTER_COST, FINISHED"/>
+    <ext:createPostgresEnumType name="INFO_REPORT_STATUS" values="ENTER_START_DATE, ENTER_END_DATE, FINISHED"/>
+    <ext:createPostgresEnumType name="MAINTENANCE_STATUS" values="ENTER_RUN, ENTER_DESCRIPTION, ENTER_COST, FINISHED"/>
+    <ext:createPostgresEnumType name="REFUEL_STATUS" values="ENTER_RUN, ENTER_AMOUNT, ENTER_PRICE, FINISHED"/>
+    <ext:createPostgresEnumType name="ACTION_TYPE" values="DEFAULT, REGISTER_AUTO, ENTER_REFUEL, ENTER_MAINTENANCE,
+    ENTER_EXPENSES, ENTER_INFO_BY_PERIOD, ENTER_INFO_BY_YEAR, ENTER_INFO_BY_MONTH, ENTER_INFO_BY_DAY"/>
+  </changeSet>
+
+  <changeSet id="2" author="IrinaMizgir">
+    <createTable tableName="USERS">
+      <column name="id" type="bigint">
+        <constraints primaryKey="true" nullable="false"/>
+      </column>
+      <column name="CREATION_DATE" type="DATE" defaultValueComputed="CURRENT_TIMESTAMP">
+        <constraints nullable="false"/>
+      </column>
+      <column name="LAST_MODIFIED_DATE" type="DATE">
+        <constraints nullable="false"/>
+      </column>
+      <column name="USER_NAME" type="VARCHAR(255)">
+        <constraints nullable="true"/>
+      </column>
+
+    </createTable>
+    <createTable tableName="USER_ACTION_STATES">
+      <column name="id" type="bigint">
+        <constraints primaryKey="true" nullable="false"/>
+      </column>
+      <column name="CREATION_DATE" type="DATE" defaultValueComputed="CURRENT_TIMESTAMP">
+        <constraints nullable="false"/>
+      </column>
+      <column name="LAST_MODIFIED_DATE" type="DATE">
+        <constraints nullable="false"/>
+      </column>
+      <column name="TYPE" type="ACTION_TYPE">
+        <constraints nullable="false"/>
+      </column>
+      <column name="USER_ID" type="BIGINT">
+        <constraints nullable="false"
+          unique="true"
+          foreignKeyName="FK_USER_ACTION_STATE_USER"
+          referencedTableName="USERS"
+          referencedColumnNames="ID"/>
+      </column>
+    </createTable>
+    <createTable tableName="AUTOS">
+
+      <column name="ID" type="INT" autoIncrement="true">
+        <constraints primaryKey="true" nullable="false" primaryKeyName="PK_AUTO"/>
+      </column>
+      <column name="CREATION_DATE" type="DATE" defaultValueComputed="CURRENT_TIMESTAMP">
+        <constraints nullable="false"/>
+      </column>
+      <column name="LAST_MODIFIED_DATE" type="DATE">
+        <constraints nullable="false"/>
+      </column>
+      <column name="NAME" type="VARCHAR(255)">
+        <constraints nullable="true"/>
+      </column>
+      <column name="YEAR" type="INT">
+        <constraints nullable="true"/>
+      </column>
+      <column name="RUN" type="BIGINT">
+        <constraints nullable="true"/>
+      </column>
+      <column name="STATUS" type="AUTO_REGISTRATION_STATUS">
+        <constraints nullable="false"/>
+      </column>
+      <column name="USER_ID" type="BIGINT">
+        <constraints nullable="false"
+          unique="true"
+          foreignKeyName="FK_AUTO_USER"
+          referencedTableName="USERS"
+          referencedColumnNames="ID"/>
+      </column>
+    </createTable>
+    <createTable tableName="EXPENSES">
+      <column name="ID" type="INT" autoIncrement="true">
+        <constraints primaryKey="true" nullable="false" primaryKeyName="PK_EXPENSES"/>
+      </column>
+      <column name="CREATION_DATE" type="DATE" defaultValueComputed="CURRENT_TIMESTAMP">
+        <constraints nullable="false"/>
+      </column>
+      <column name="LAST_MODIFIED_DATE" type="DATE">
+        <constraints nullable="false"/>
+      </column>
+      <column name="DESCRIPTION" type="VARCHAR(255)">
+        <constraints nullable="true"/>
+      </column>
+      <column name="COST" type="NUMERIC(38, 2)">
+        <constraints nullable="true"/>
+      </column>
+      <column name="STATUS" type="EXPENSES_STATUS">
+        <constraints nullable="false"/>
+      </column>
+      <column name="AUTO_ID" type="BIGINT">
+        <constraints nullable="false"
+          foreignKeyName="FK_EXPENSE_AUTO"
+          referencedTableName="AUTOS"
+          referencedColumnNames="ID"
+        />
+      </column>
+    </createTable>
+    <createTable tableName="INFO_REPORT">
+      <column name="ID" type="INT" autoIncrement="true">
+        <constraints primaryKey="true" nullable="false" primaryKeyName="PK_INFO_REPORT"/>
+      </column>
+      <column name="CREATION_DATE" type="DATE" defaultValueComputed="CURRENT_TIMESTAMP">
+        <constraints nullable="false"/>
+      </column>
+      <column name="LAST_MODIFIED_DATE" type="DATE">
+        <constraints nullable="false"/>
+      </column>
+      <column name="PERIOD_START_DATE" type="DATE">
+        <constraints nullable="true"/>
+      </column>
+      <column name="PERIOD_END_DATE" type="DATE">
+        <constraints nullable="true"/>
+      </column>
+      <column name="STATUS" type="INFO_REPORT_STATUS">
+        <constraints nullable="false"/>
+      </column>
+      <column name="AUTO_ID" type="BIGINT">
+        <constraints nullable="false"
+          foreignKeyName="FK_INFO_REPORT_AUTO"
+          referencedTableName="AUTOS"
+          referencedColumnNames="ID"
+        />
+      </column>
+    </createTable>
+    <createTable tableName="MAINTENANCE">
+      <column name="ID" type="INT" autoIncrement="true">
+        <constraints primaryKey="true" nullable="false" primaryKeyName="PK_MAINTENANCE"/>
+      </column>
+      <column name="CREATION_DATE" type="DATE" defaultValueComputed="CURRENT_TIMESTAMP">
+        <constraints nullable="false"/>
+      </column>
+      <column name="LAST_MODIFIED_DATE" type="DATE">
+        <constraints nullable="false"/>
+      </column>
+      <column name="DISTANCE" type="BIGINT">
+        <constraints nullable="true"/>
+      </column>
+      <column name="DESCRIPTION" type="VARCHAR(255)">
+        <constraints nullable="true"/>
+      </column>
+      <column name="RUN" type="BIGINT">
+        <constraints nullable="true"/>
+      </column>
+      <column name="COST" type="NUMERIC(38, 2)">
+        <constraints nullable="true"/>
+      </column>
+      <column name="STATUS" type="MAINTENANCE_STATUS">
+        <constraints nullable="false"/>
+      </column>
+      <column name="AUTO_ID" type="BIGINT">
+        <constraints nullable="false"
+          foreignKeyName="FK_MAINTENANCE_AUTO"
+          referencedTableName="AUTOS"
+          referencedColumnNames="ID"
+        />
+      </column>
+    </createTable>
+    <createTable tableName="REFUELS">
+      <column name="ID" type="INT" autoIncrement="true">
+        <constraints primaryKey="true" nullable="false" primaryKeyName="PK_REFUELS"/>
+      </column>
+      <column name="CREATION_DATE" type="DATE" defaultValueComputed="CURRENT_TIMESTAMP">
+        <constraints nullable="false"/>
+      </column>
+      <column name="LAST_MODIFIED_DATE" type="DATE">
+        <constraints nullable="false"/>
+      </column>
+      <column name="AMOUNT" type="NUMERIC(38, 2)">
+        <constraints nullable="true"/>
+      </column>
+      <column name="DISTANCE" type="BIGINT">
+        <constraints nullable="true"/>
+      </column>
+      <column name="DESCRIPTION" type="VARCHAR(255)">
+        <constraints nullable="true"/>
+      </column>
+      <column name="RUN" type="BIGINT">
+        <constraints nullable="true"/>
+      </column>
+      <column name="PRICE" type="NUMERIC(38, 2)">
+        <constraints nullable="true"/>
+      </column>
+      <column name="COST" type="NUMERIC(38, 2)">
+        <constraints nullable="true"/>
+      </column>
+      <column name="STATUS" type="REFUEL_STATUS">
+        <constraints nullable="false"/>
+      </column>
+      <column name="AUTO_ID" type="BIGINT">
+        <constraints nullable="false"
+          foreignKeyName="FK_REFUEL_AUTO"
+          referencedTableName="AUTOS"
+          referencedColumnNames="ID"
+        />
+      </column>
+    </createTable>
+
+  </changeSet>
+
+</databaseChangeLog>

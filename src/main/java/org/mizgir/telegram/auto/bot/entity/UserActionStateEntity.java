@@ -4,6 +4,8 @@ import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
@@ -50,7 +52,8 @@ public class UserActionStateEntity {
   /**
    * Статус регистрации.
    */
-  @Column
+  @Enumerated(EnumType.STRING)
+  @Column(name = "TYPE")
   private ActionType type = ActionType.DEFAULT;
 
   /**

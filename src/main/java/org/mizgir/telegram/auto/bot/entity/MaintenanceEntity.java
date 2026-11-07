@@ -4,6 +4,8 @@ import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -68,7 +70,7 @@ public class MaintenanceEntity {
   /**
    * Пробег автомобиля.
    */
-  @Column
+  @Column(name = "RUN")
   private Long run;
 
   /**
@@ -86,7 +88,8 @@ public class MaintenanceEntity {
   /**
    * Статус СО.
    */
-  @Column
+  @Enumerated(EnumType.STRING)
+  @Column(name = "STATUS")
   private MaintenanceStatus status = MaintenanceStatus.ENTER_RUN;
 
   /**
